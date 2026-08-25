@@ -52,7 +52,7 @@ export default function ChartView() {
   return (
     <div className="space-y-3">
       <Section
-        title="Who qualifies"
+        title="Guideline indication / Clinical practice"
         action={
           <button
             type="button"
