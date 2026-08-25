@@ -4,3 +4,4 @@ dist
 *.log
 .vercel
 Integrate-CKD_algorithm_website
+.env*
