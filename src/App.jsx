@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Analytics } from "@vercel/analytics/react";
 import ChartView from "./ChartView.jsx";
 import InteractiveView from "./InteractiveView.jsx";
 
@@ -46,6 +47,7 @@ export default function App() {
       <main className="mx-auto max-w-6xl px-4 py-3 sm:px-5">
         {tab === "chart" ? <ChartView /> : <InteractiveView />}
       </main>
+      <Analytics />
     </div>
   );
 }
