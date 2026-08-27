@@ -5,3 +5,4 @@ dist
 .vercel
 Integrate-CKD_algorithm_website
 .env*
+WEBSITE_DOCUMENTATION.md
