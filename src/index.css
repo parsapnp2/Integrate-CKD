@@ -40,3 +40,24 @@ body {
 button {
   font-family: inherit;
 }
+
+@keyframes organ-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}
+
+.organ-pulse {
+  animation: organ-pulse 1.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .organ-pulse {
+    animation: none;
+  }
+}

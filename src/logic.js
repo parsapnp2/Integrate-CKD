@@ -14,6 +14,29 @@ export function kBandFromValue(k) {
   return kBands.find((band) => band.id === "pause");
 }
 
+export function relativeReductionPct(hr) {
+  return Math.round((1 - hr) * 100);
+}
+
+export function combinedHazardRatio(outcome, selected, halfAdditivity = false) {
+  const keys = ["sglt2i", "nsmra", "glp1"].filter((id) => selected[id]);
+  if (keys.length === 0) return 1;
+  if (keys.length === 1) return outcome.hrs[keys[0]];
+
+  if (halfAdditivity) {
+    if (keys.length === 3 && outcome.halfCombo != null) return outcome.halfCombo;
+    let hr = 1;
+    if (selected.sglt2i) hr *= outcome.hrs.sglt2i;
+    const exponent = selected.sglt2i ? 0.5 : 1;
+    if (selected.nsmra) hr *= outcome.hrs.nsmra ** exponent;
+    if (selected.glp1) hr *= outcome.hrs.glp1 ** exponent;
+    return hr;
+  }
+
+  if (keys.length === 3) return outcome.hrs.combo;
+  return outcome.combos[keys.join("_")];
+}
+
 export function finerenoneDose(egfr) {
   if (egfr == null || egfr < 25) return null;
   if (egfr < 60) return "10 mg daily";

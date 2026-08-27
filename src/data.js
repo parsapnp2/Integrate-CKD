@@ -195,3 +195,96 @@ export const kManagement = [
   "Add K⁺-wasting diuretic.",
   "Dietitian referral.",
 ];
+
+/** Relative effects on top of RASi (conventional care). Class HRs from Neuen et al. Circulation 2024 except GLP-1 RA CKD, which uses FLOW. */
+export const riskAgents = [
+  { id: "sglt2i", formKey: "onSglt", name: "SGLT2i", tone: "sglt" },
+  { id: "nsmra", formKey: "onFinerenone", name: "ns-MRA", tone: "mra" },
+  { id: "glp1", formKey: "onGlp", name: "GLP-1 RA", tone: "glp" },
+];
+
+export const riskOutcomes = [
+  {
+    id: "ckd",
+    label: "CKD progression",
+    hint: "Kidney failure, large eGFR drop, or kidney death",
+    organ: "kidney",
+    hrs: { sglt2i: 0.63, nsmra: 0.77, glp1: 0.76, combo: 0.37 },
+    combos: { sglt2i_nsmra: 0.49, sglt2i_glp1: 0.48, nsmra_glp1: 0.59 },
+    halfCombo: 0.48,
+    ci: {
+      sglt2i: "0.53–0.77",
+      nsmra: "0.67–0.88",
+      glp1: "0.66–0.88",
+      combo: "estimated",
+    },
+    glp1Note: "FLOW",
+  },
+  {
+    id: "mace",
+    label: "MACE",
+    hint: "Nonfatal MI, nonfatal stroke, or CV death",
+    organ: "heart",
+    hrs: { sglt2i: 0.83, nsmra: 0.9, glp1: 0.86, combo: 0.65 },
+    combos: { sglt2i_nsmra: 0.75, sglt2i_glp1: 0.72, nsmra_glp1: 0.77 },
+    halfCombo: 0.73,
+    ci: {
+      sglt2i: "0.75–0.93",
+      nsmra: "0.81–1.00",
+      glp1: "0.80–0.93",
+      combo: "0.55–0.76",
+    },
+  },
+  {
+    id: "mortality",
+    label: "All-cause mortality",
+    hint: "Death from any cause",
+    organ: "heart",
+    hrs: { sglt2i: 0.85, nsmra: 0.89, glp1: 0.88, combo: 0.67 },
+    combos: { sglt2i_nsmra: 0.76, sglt2i_glp1: 0.75, nsmra_glp1: 0.78 },
+    halfCombo: 0.75,
+    ci: {
+      sglt2i: "0.75–0.96",
+      nsmra: "0.79–1.00",
+      glp1: "0.82–0.94",
+      combo: "0.55–0.80",
+    },
+  },
+  {
+    id: "hhf",
+    label: "Hospitalization for HF",
+    hint: "First hospitalization for heart failure",
+    organ: "heart",
+    hrs: { sglt2i: 0.64, nsmra: 0.78, glp1: 0.89, combo: 0.45 },
+    combos: { sglt2i_nsmra: 0.5, sglt2i_glp1: 0.57, nsmra_glp1: 0.69 },
+    halfCombo: 0.53,
+    ci: {
+      sglt2i: "0.53–0.77",
+      nsmra: "0.66–0.92",
+      glp1: "0.82–0.98",
+      combo: "0.34–0.58",
+    },
+  },
+];
+
+export const lifetimeGainsAge50 = [
+  { id: "ckd", label: "CKD progression", years: 5.5, ci: "4.0–6.7", halfYears: 4.5, halfCi: "2.8–5.9" },
+  { id: "mace", label: "MACE", years: 3.2, ci: "2.1–4.3", halfYears: 2.4, halfCi: "1.1–3.5" },
+  { id: "hhf", label: "Hospitalization for HF", years: 3.2, ci: "2.4–4.0", halfYears: 2.7, halfCi: "1.7–3.5" },
+  { id: "mortality", label: "All-cause death", years: 2.4, ci: "1.4–3.4", halfYears: 1.8, halfCi: "0.7–2.8" },
+];
+
+export const riskSources = [
+  {
+    id: "neuen",
+    cite: "Neuen BL, et al. Circulation. 2024;149:450–462.",
+    href: "https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.123.067584",
+    note: "Main source for class effects, combinations, 50% additivity, and lifetime years. Effects are versus conventional care that already includes RASi.",
+  },
+  {
+    id: "flow",
+    cite: "Perkovic V, et al. N Engl J Med. 2024;391:109–121. FLOW.",
+    href: "https://www.nejm.org/doi/full/10.1056/NEJMoa2403347",
+    note: "Used only for the GLP-1 RA CKD bar (semaglutide primary kidney composite HR 0.76). Neuen’s GLP-1 kidney HR was 0.86 from an earlier meta-analysis.",
+  },
+];
