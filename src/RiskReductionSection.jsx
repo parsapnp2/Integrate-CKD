@@ -1,9 +1,9 @@
 import { useMemo, useState } from "react";
 import { lifetimeGainsAge50, riskAgents, riskOutcomes, riskSources } from "./data.js";
-import { combinedHazardRatio, relativeReductionPct } from "./logic.js";
+import { combinedCi, combinedHazardRatio, formatReductionCi, relativeReductionPct } from "./logic.js";
 import { tone } from "./theme.js";
 
-const BAR_SCALE = 70;
+const BAR_SCALE = 65;
 const ALL_THREE = { sglt2i: true, nsmra: true, glp1: true };
 
 function mixHex(from, to, amount) {
@@ -16,83 +16,180 @@ function mixHex(from, to, amount) {
     .join("")}`;
 }
 
-function HeartMark({ fill, glow, potentialGlow, pulse }) {
+function FillShape({ d, viewBox, fill, glow, potentialGlow, pulse, extra }) {
   const inset = (amount) => `inset(${Math.round((1 - amount) * 1000) / 10}% 0 0 0)`;
   return (
-    <svg viewBox="0 0 100 100" className={`h-full w-full ${pulse ? "organ-pulse" : ""}`} aria-hidden="true">
-      <path
-        d="M50 86C50 86 16 63 16 41C16 27 28 18 40 22C45 24 50 32 50 32C50 32 55 24 60 22C72 18 84 27 84 41C84 63 50 86 50 86Z"
-        fill="#e8eef3"
-        stroke="#94a3b8"
-        strokeWidth="2.2"
-      />
+    <svg viewBox={viewBox} className={`h-full w-full ${pulse ? "organ-pulse" : ""}`} aria-hidden="true">
+      <path d={d} fill="#e8eef3" stroke="#94a3b8" strokeWidth="2.2" />
       {potentialGlow > glow + 0.02 ? (
         <path
-          d="M50 86C50 86 16 63 16 41C16 27 28 18 40 22C45 24 50 32 50 32C50 32 55 24 60 22C72 18 84 27 84 41C84 63 50 86 50 86Z"
+          d={d}
           fill={fill}
           opacity="0.22"
           style={{ clipPath: inset(potentialGlow), transition: "clip-path 700ms ease, fill 700ms ease" }}
         />
       ) : null}
       <path
-        d="M50 86C50 86 16 63 16 41C16 27 28 18 40 22C45 24 50 32 50 32C50 32 55 24 60 22C72 18 84 27 84 41C84 63 50 86 50 86Z"
+        d={d}
         fill={fill}
         style={{ clipPath: inset(glow), transition: "clip-path 700ms ease, fill 700ms ease" }}
       />
-      <path
-        d="M34 44c8 1 12 8 16 8s8-7 16-8"
-        fill="none"
-        stroke="white"
-        strokeOpacity="0.55"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
+      {extra}
     </svg>
   );
 }
 
-function KidneyMark({ fill, glow, potentialGlow, pulse }) {
-  const inset = (amount) => `inset(${Math.round((1 - amount) * 1000) / 10}% 0 0 0)`;
+function HeartMark(props) {
   return (
-    <svg viewBox="0 0 90 110" className={`h-full w-full ${pulse ? "organ-pulse" : ""}`} aria-hidden="true">
-      <path
-        d="M52 10C70 10 78 28 76 52C74 76 64 98 44 100C24 102 12 84 16 60C18 48 26 44 26 34C26 20 36 10 52 10Z"
-        fill="#e8eef3"
-        stroke="#94a3b8"
-        strokeWidth="2.2"
-      />
-      {potentialGlow > glow + 0.02 ? (
+    <FillShape
+      {...props}
+      viewBox="0 0 100 100"
+      d="M50 86C50 86 16 63 16 41C16 27 28 18 40 22C45 24 50 32 50 32C50 32 55 24 60 22C72 18 84 27 84 41C84 63 50 86 50 86Z"
+      extra={
         <path
-          d="M52 10C70 10 78 28 76 52C74 76 64 98 44 100C24 102 12 84 16 60C18 48 26 44 26 34C26 20 36 10 52 10Z"
-          fill={fill}
-          opacity="0.22"
-          style={{ clipPath: inset(potentialGlow), transition: "clip-path 700ms ease, fill 700ms ease" }}
+          d="M34 44c8 1 12 8 16 8s8-7 16-8"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.55"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      }
+    />
+  );
+}
+
+function KidneyMark(props) {
+  return (
+    <FillShape
+      {...props}
+      viewBox="0 0 90 110"
+      d="M52 10C70 10 78 28 76 52C74 76 64 98 44 100C24 102 12 84 16 60C18 48 26 44 26 34C26 20 36 10 52 10Z"
+      extra={
+        <path
+          d="M40 38c8 4 12 14 12 22s-5 16-12 20"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.5"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      }
+    />
+  );
+}
+
+function MaceMark(props) {
+  return (
+    <FillShape
+      {...props}
+      viewBox="0 0 100 100"
+      d="M18 50c0-18 14-32 32-32s32 14 32 32-14 32-32 32-32-14-32-32Z"
+      extra={
+        <path
+          d="M28 52h10l6-14 8 24 6-10h14"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.7"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      }
+    />
+  );
+}
+
+function MortalityMark(props) {
+  return (
+    <FillShape
+      {...props}
+      viewBox="0 0 100 100"
+      d="M22 18h56c6 0 10 4 10 10v44c0 6-4 10-10 10H22c-6 0-10-4-10-10V28c0-6 4-10 10-10Z"
+      extra={
+        <path
+          d="M26 50h12l5-12 8 24 6-12h17"
+          fill="none"
+          stroke="white"
+          strokeOpacity="0.7"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      }
+    />
+  );
+}
+
+const icons = {
+  heart: HeartMark,
+  kidney: KidneyMark,
+  mace: MaceMark,
+  mortality: MortalityMark,
+};
+
+function CiNote({ ci }) {
+  const range = formatReductionCi(ci);
+  if (!range) return null;
+  return (
+    <span className="block text-[9px] font-medium tabular-nums text-muted" title="95% CI from Neuen Figures 1–2">
+      {range}
+    </span>
+  );
+}
+
+function BarTrack({ pct, ci, barClass }) {
+  const toPct = (value) => `${Math.min(100, (Math.max(0, value) / BAR_SCALE) * 100)}%`;
+  const lo = ci ? Math.max(0, Math.round((1 - ci[1]) * 100)) : 0;
+  const hi = ci ? Math.max(0, Math.round((1 - ci[0]) * 100)) : 0;
+  const showCi = Boolean(ci && pct > 0);
+  return (
+    <div className="relative h-3.5 rounded-full bg-slate-100">
+      {showCi ? (
+        <div
+          className={`absolute inset-y-0 rounded-full ${barClass} opacity-25`}
+          style={{ left: toPct(Math.min(lo, hi)), width: toPct(Math.abs(hi - lo)) }}
         />
       ) : null}
-      <path
-        d="M52 10C70 10 78 28 76 52C74 76 64 98 44 100C24 102 12 84 16 60C18 48 26 44 26 34C26 20 36 10 52 10Z"
-        fill={fill}
-        style={{ clipPath: inset(glow), transition: "clip-path 700ms ease, fill 700ms ease" }}
-      />
-      <path
-        d="M40 38c8 4 12 14 12 22s-5 16-12 20"
-        fill="none"
-        stroke="white"
-        strokeOpacity="0.5"
-        strokeWidth="2"
-        strokeLinecap="round"
-      />
-    </svg>
+      <div className={`h-full rounded-full ${barClass} transition-all duration-700`} style={{ width: toPct(pct) }} />
+      {showCi ? (
+        <span
+          className="pointer-events-none absolute top-1/2 z-[1] h-3.5 -translate-y-1/2 rounded-sm border-x-2 border-ink/70"
+          style={{ left: toPct(Math.min(lo, hi)), width: toPct(Math.abs(hi - lo)) }}
+          title={`95% CI ${formatReductionCi(ci)}`}
+        />
+      ) : null}
+    </div>
   );
 }
 
-function OutcomeCard({ outcome, started, potential, anyStarted, halfAdditivity }) {
-  const liveHr = combinedHazardRatio(outcome, started, halfAdditivity);
-  const potentialHr = combinedHazardRatio(outcome, potential, halfAdditivity);
-  const previewHr = combinedHazardRatio(outcome, ALL_THREE, halfAdditivity);
-  const livePct = relativeReductionPct(liveHr);
-  const potentialPct = relativeReductionPct(potentialHr);
-  const shownPct = anyStarted ? livePct : relativeReductionPct(previewHr);
+function SummaryCard({ outcome, livePct, liveCi, potentialPct, anyStarted }) {
+  const Icon = icons[outcome.icon];
+  const toGlow = (pct) => 0.12 + (pct / outcome.maxPct) * 0.88;
+  const glow = toGlow(livePct);
+  const potentialGlow = toGlow(potentialPct);
+  const fill = mixHex(outcome.fillFrom, outcome.fillTo, anyStarted ? glow : 0.18);
+
+  return (
+    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-2">
+      <div className="h-16 w-16 shrink-0">
+        <Icon fill={fill} glow={glow} potentialGlow={potentialGlow} pulse={anyStarted && livePct >= 30} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{outcome.category}</p>
+        <p className="text-sm font-semibold text-ink">{outcome.label}</p>
+        <p className={`text-lg font-bold tabular-nums leading-tight ${outcome.valueClass}`}>↓{livePct}%</p>
+        {anyStarted ? <CiNote ci={liveCi} /> : <p className="text-[10px] text-muted">risk reduction</p>}
+        {potentialPct > livePct ? <p className="text-[10px] text-muted">up to ↓{potentialPct}%</p> : null}
+      </div>
+    </div>
+  );
+}
+
+function DrugBars({ outcome, started, potential, anyStarted }) {
+  const livePct = relativeReductionPct(combinedHazardRatio(outcome, started));
+  const liveCi = combinedCi(outcome, started);
+  const potentialPct = relativeReductionPct(combinedHazardRatio(outcome, potential));
 
   return (
     <div className="rounded-xl border border-slate-200 bg-white p-2.5">
@@ -102,8 +199,8 @@ function OutcomeCard({ outcome, started, potential, anyStarted, halfAdditivity }
           <p className="text-[10px] leading-snug text-muted">{outcome.hint}</p>
         </div>
         <div className="text-right">
-          <p className="text-lg font-bold tabular-nums text-proceed">↓{shownPct}%</p>
-          <p className="text-[10px] text-muted">{anyStarted ? "with started meds" : "if all three"}</p>
+          <p className="text-lg font-bold tabular-nums leading-tight text-proceed">↓{livePct}%</p>
+          {anyStarted ? <CiNote ci={liveCi} /> : <p className="text-[10px] text-muted">risk reduction</p>}
         </div>
       </div>
 
@@ -111,34 +208,30 @@ function OutcomeCard({ outcome, started, potential, anyStarted, halfAdditivity }
         {riskAgents.map((agent) => {
           const t = tone[agent.tone];
           const hr = outcome.hrs[agent.id];
-          const pct = relativeReductionPct(hr);
+          const classPct = relativeReductionPct(hr);
           const on = started[agent.id];
+          const shownPct = on ? classPct : 0;
           return (
-            <div key={agent.id} className={`grid grid-cols-[4.75rem_minmax(0,1fr)_2.4rem] items-center gap-2 ${on ? "" : "opacity-60"}`}>
+            <div key={agent.id} className={`grid grid-cols-[4.75rem_minmax(0,1fr)_3.1rem] items-center gap-2 ${on ? "" : "opacity-60"}`}>
               <span className={`flex items-center gap-1 text-[11px] font-semibold ${t.text}`}>
                 {on ? <span className={`inline-block h-1.5 w-1.5 rounded-full ${t.bar}`} /> : null}
                 {agent.name}
               </span>
-              <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-                <div
-                  className={`h-full rounded-full ${t.bar} transition-all duration-700`}
-                  style={{ width: `${Math.min(100, (pct / BAR_SCALE) * 100)}%` }}
-                  title={`HR ${hr} (${outcome.ci[agent.id]})`}
-                />
-              </div>
-              <span className="text-right text-[11px] font-semibold tabular-nums text-ink">{pct}%</span>
+              <BarTrack pct={shownPct} ci={on ? outcome.ci[agent.id] : null} barClass={t.bar} />
+              <span className="text-right text-[11px] font-semibold leading-tight tabular-nums text-ink">
+                {shownPct}%
+                {on ? <CiNote ci={outcome.ci[agent.id]} /> : null}
+              </span>
             </div>
           );
         })}
-        <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_2.4rem] items-center gap-2 border-t border-slate-100 pt-1.5">
+        <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_3.1rem] items-center gap-2 border-t border-slate-100 pt-1.5">
           <span className="text-[11px] font-semibold text-ink">Together</span>
-          <div className="h-3 overflow-hidden rounded-full bg-slate-100">
-            <div
-              className="h-full rounded-full bg-proceed transition-all duration-700"
-              style={{ width: `${Math.min(100, (shownPct / BAR_SCALE) * 100)}%` }}
-            />
-          </div>
-          <span className="text-right text-[11px] font-semibold tabular-nums text-proceed">{shownPct}%</span>
+          <BarTrack pct={livePct} ci={anyStarted ? liveCi : null} barClass="bg-proceed" />
+          <span className="text-right text-[11px] font-semibold leading-tight tabular-nums text-proceed">
+            {livePct}%
+            {anyStarted ? <CiNote ci={liveCi} /> : null}
+          </span>
         </div>
         {anyStarted && potentialPct > livePct ? (
           <p className="pt-0.5 text-[10px] text-muted">Indicated add-ons could reach ↓{potentialPct}%.</p>
@@ -163,7 +256,6 @@ function FootnoteButton({ open, onClick, children }) {
 }
 
 export default function RiskReductionSection({ form, agents }) {
-  const [halfAdditivity, setHalfAdditivity] = useState(false);
   const [panel, setPanel] = useState(null);
 
   const started = useMemo(
@@ -187,26 +279,7 @@ export default function RiskReductionSection({ form, agents }) {
   const anyStarted = started.sglt2i || started.nsmra || started.glp1;
   const anyPotential = potential.sglt2i || potential.nsmra || potential.glp1;
   const startedCount = [started.sglt2i, started.nsmra, started.glp1].filter(Boolean).length;
-
-  const kidneyOutcome = riskOutcomes.find((item) => item.id === "ckd");
-  const heartOutcome = riskOutcomes.find((item) => item.id === "hhf");
-  const kidneyPct = relativeReductionPct(combinedHazardRatio(kidneyOutcome, started, halfAdditivity));
-  const heartPct = relativeReductionPct(combinedHazardRatio(heartOutcome, started, halfAdditivity));
-  const kidneyPotentialPct = relativeReductionPct(
-    combinedHazardRatio(kidneyOutcome, anyPotential ? potential : ALL_THREE, halfAdditivity),
-  );
-  const heartPotentialPct = relativeReductionPct(
-    combinedHazardRatio(heartOutcome, anyPotential ? potential : ALL_THREE, halfAdditivity),
-  );
-  const toGlow = (pct, max) => 0.12 + (pct / max) * 0.88;
-  const kidneyGlow = toGlow(kidneyPct, 63);
-  const heartGlow = toGlow(heartPct, 55);
-  const kidneyPotentialGlow = toGlow(kidneyPotentialPct, 63);
-  const heartPotentialGlow = toGlow(heartPotentialPct, 55);
-  const vitality = (Math.max(kidneyGlow, kidneyPotentialGlow * 0.45) + Math.max(heartGlow, heartPotentialGlow * 0.45)) / 2;
-
-  const heartFill = mixHex("#b08a8e", "#e11d48", anyStarted ? heartGlow : 0.18);
-  const kidneyFill = mixHex("#94a3b8", "#0e7c72", anyStarted ? kidneyGlow : 0.18);
+  const vitality = anyStarted ? 0.55 : 0.12;
 
   function togglePanel(id) {
     setPanel((current) => (current === id ? null : id));
@@ -223,78 +296,42 @@ export default function RiskReductionSection({ form, agents }) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Estimated risk reduction</p>
-            <h3 className="font-serif text-lg text-ink">How each medicine lowers cardiorenal risk</h3>
+            <h3 className="font-serif text-lg text-ink">Cardiorenal risk reduction</h3>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-ink">
-            <input
-              type="checkbox"
-              checked={halfAdditivity}
-              onChange={(event) => setHalfAdditivity(event.target.checked)}
-            />
-            50% additivity
-          </label>
         </div>
-        <p className="mt-1 text-[11px] leading-snug text-muted">
-          Relative risk reduction on top of RASi (the baseline). Absolute remaining risk is not shown yet. Tick medicines
-          already started to watch the heart and kidney recover.
-        </p>
+        <p className="mt-1 text-[11px] leading-snug text-muted">Relative risk reduction on top of RASi (the baseline). Ranges are 95% CIs.</p>
 
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-2 py-2">
-            <div className="h-16 w-16 shrink-0">
-              <HeartMark
-                fill={heartFill}
-                glow={heartGlow}
-                potentialGlow={heartPotentialGlow}
-                pulse={anyStarted && heartPct >= 30}
-              />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Heart</p>
-              <p className="text-sm font-semibold text-ink">HF hospitalization</p>
-              <p className="text-lg font-bold tabular-nums text-ink">↓{heartPct}%</p>
-              {heartPotentialPct > heartPct ? (
-                <p className="text-[10px] text-muted">up to ↓{heartPotentialPct}%</p>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 px-2 py-2">
-            <div className="h-16 w-16 shrink-0">
-              <KidneyMark
-                fill={kidneyFill}
-                glow={kidneyGlow}
-                potentialGlow={kidneyPotentialGlow}
-                pulse={anyStarted && kidneyPct >= 30}
-              />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Kidney</p>
-              <p className="text-sm font-semibold text-ink">CKD progression</p>
-              <p className="text-lg font-bold tabular-nums text-sglt">↓{kidneyPct}%</p>
-              {kidneyPotentialPct > kidneyPct ? (
-                <p className="text-[10px] text-muted">up to ↓{kidneyPotentialPct}%</p>
-              ) : null}
-            </div>
-          </div>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          {riskOutcomes.map((outcome) => {
+            const livePct = relativeReductionPct(combinedHazardRatio(outcome, started));
+            const liveCi = combinedCi(outcome, started);
+            const potentialPct = relativeReductionPct(
+              combinedHazardRatio(outcome, anyPotential ? potential : ALL_THREE),
+            );
+            return (
+              <div key={outcome.id} className="space-y-2">
+                <SummaryCard
+                  outcome={outcome}
+                  livePct={livePct}
+                  liveCi={liveCi}
+                  potentialPct={potentialPct}
+                  anyStarted={anyStarted}
+                />
+                <DrugBars
+                  outcome={outcome}
+                  started={started}
+                  potential={potential}
+                  anyStarted={anyStarted}
+                />
+              </div>
+            );
+          })}
         </div>
         <p className="mt-2 text-[11px] text-muted">
           {anyStarted
-            ? `${startedCount} of 3 pillars started — the heart and kidney fill as combined protection rises.`
-            : "No pillars started yet. Solid fill is current protection; the faint fill is combination therapy."}
+            ? `${startedCount} of 3 pillars started — bars and organ fill rise as medicines are added.`
+            : "No pillars started yet. Values are 0% until a medicine is ticked. Faint fill is combination therapy."}
         </p>
-      </div>
-
-      <div className="grid gap-2 p-3 sm:grid-cols-2">
-        {riskOutcomes.map((outcome) => (
-          <OutcomeCard
-            key={outcome.id}
-            outcome={outcome}
-            started={started}
-            potential={potential}
-            anyStarted={anyStarted}
-            halfAdditivity={halfAdditivity}
-          />
-        ))}
       </div>
 
       <div className="border-t border-slate-100 bg-slate-50 px-3 py-2">
@@ -312,9 +349,9 @@ export default function RiskReductionSection({ form, agents }) {
           <div className="mt-2 space-y-2 text-[11px] leading-relaxed text-muted">
             <p>
               RASi is baseline (conventional care). These are relative reductions from trials in type 2 diabetes with
-              albuminuria; they are shown even if this patient’s labs differ. Combination assumes independent class effects
-              on the hazard-ratio scale, unless 50% additivity is turned on (Neuen: 50% of the GLP-1 RA and ns-MRA effects
-              when added to SGLT2i).
+              albuminuria; they are shown even if this patient’s labs differ. Single-agent, two-drug, and three-drug
+              values follow Neuen Figures 1–2. Ranges are 95% CIs (dual CIs use the paper’s independent log-HR standard
+              errors).
             </p>
             {riskSources.map((source) => (
               <p key={source.id}>
@@ -324,10 +361,6 @@ export default function RiskReductionSection({ form, agents }) {
                 {source.note}
               </p>
             ))}
-            <p>
-              CKD combination with FLOW is estimated from SGLT2i × FLOW GLP-1 × ns-MRA (HR 0.37 full additivity; 0.48 at
-              50% additivity). FLOW’s kidney composite includes CV death; Neuen’s original CKD end point did not.
-            </p>
           </div>
         ) : null}
 
@@ -335,23 +368,18 @@ export default function RiskReductionSection({ form, agents }) {
           <div className="mt-2 space-y-2 text-[11px] leading-relaxed text-muted">
             <p>
               Projected event-free years gained for a 50-year-old starting SGLT2i + GLP-1 RA + ns-MRA versus conventional
-              care, from Neuen et al. Circulation 2024. These were not recalculated with FLOW.
+              care, from Neuen et al. Circulation 2024.
             </p>
             <ul className="space-y-1">
-              {lifetimeGainsAge50.map((row) => {
-                const years = halfAdditivity ? row.halfYears : row.years;
-                const ci = halfAdditivity ? row.halfCi : row.ci;
-                return (
-                  <li key={row.id} className="flex items-baseline justify-between gap-3 text-ink">
-                    <span>{row.label}</span>
-                    <span className="tabular-nums font-semibold">
-                      +{years} y <span className="font-normal text-muted">({ci})</span>
-                    </span>
-                  </li>
-                );
-              })}
+              {lifetimeGainsAge50.map((row) => (
+                <li key={row.id} className="flex items-baseline justify-between gap-3 text-ink">
+                  <span>{row.label}</span>
+                  <span className="tabular-nums font-semibold">
+                    +{row.years} y <span className="font-normal text-muted">({row.ci})</span>
+                  </span>
+                </li>
+              ))}
             </ul>
-            <p>{halfAdditivity ? "Showing the paper’s 50% additivity projections." : "Turn on 50% additivity to see the attenuated projections."}</p>
           </div>
         ) : null}
       </div>

@@ -18,23 +18,38 @@ export function relativeReductionPct(hr) {
   return Math.round((1 - hr) * 100);
 }
 
-export function combinedHazardRatio(outcome, selected, halfAdditivity = false) {
-  const keys = ["sglt2i", "nsmra", "glp1"].filter((id) => selected[id]);
+function selectedKeys(selected) {
+  return ["sglt2i", "nsmra", "glp1"].filter((id) => selected[id]);
+}
+
+export function combinedHazardRatio(outcome, selected) {
+  const keys = selectedKeys(selected);
   if (keys.length === 0) return 1;
   if (keys.length === 1) return outcome.hrs[keys[0]];
-
-  if (halfAdditivity) {
-    if (keys.length === 3 && outcome.halfCombo != null) return outcome.halfCombo;
-    let hr = 1;
-    if (selected.sglt2i) hr *= outcome.hrs.sglt2i;
-    const exponent = selected.sglt2i ? 0.5 : 1;
-    if (selected.nsmra) hr *= outcome.hrs.nsmra ** exponent;
-    if (selected.glp1) hr *= outcome.hrs.glp1 ** exponent;
-    return hr;
-  }
-
   if (keys.length === 3) return outcome.hrs.combo;
-  return outcome.combos[keys.join("_")];
+  const dual = outcome.combos[keys.join("_")];
+  if (dual == null) {
+    throw new Error(`Missing Figure 1/2 dual HR for ${outcome.id}: ${keys.join("_")}`);
+  }
+  return dual;
+}
+
+export function combinedCi(outcome, selected) {
+  const keys = selectedKeys(selected);
+  if (keys.length === 0) return null;
+  const ci = keys.length === 1 ? outcome.ci[keys[0]] : outcome.ci[keys.length === 3 ? "combo" : keys.join("_")];
+  if (ci == null) {
+    throw new Error(`Missing Figure 1/2 CI for ${outcome.id}: ${keys.join("_")}`);
+  }
+  return ci;
+}
+
+export function formatReductionCi(ci) {
+  if (!ci) return null;
+  const lo = Math.round((1 - ci[1]) * 100);
+  const hi = Math.round((1 - ci[0]) * 100);
+  const fmt = (n) => (n < 0 ? `−${Math.abs(n)}` : String(n));
+  return `${fmt(Math.min(lo, hi))}–${fmt(Math.max(lo, hi))}`;
 }
 
 export function finerenoneDose(egfr) {
