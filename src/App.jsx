@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { Analytics } from "@vercel/analytics/react";
+import CalculatorView from "./CalculatorView.jsx";
 import ChartView from "./ChartView.jsx";
 import InteractiveView from "./InteractiveView.jsx";
 
 const tabs = [
   { id: "chart", label: "Chart" },
   { id: "interactive", label: "Interactive" },
+  { id: "calculator", label: "Calculator" },
 ];
 
 export default function App() {
@@ -14,7 +16,7 @@ export default function App() {
   return (
     <div
       className={`min-h-screen ${
-        tab === "interactive"
+        tab === "interactive" || tab === "calculator"
           ? "bg-[linear-gradient(180deg,#e6f6ee_0%,#eef3f7_38%,#eef3f7_100%)]"
           : ""
       }`}
@@ -51,7 +53,7 @@ export default function App() {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-2.5 sm:px-5">
-        {tab === "chart" ? <ChartView /> : <InteractiveView />}
+        {tab === "chart" ? <ChartView /> : tab === "interactive" ? <InteractiveView /> : <CalculatorView />}
       </main>
       <Analytics />
     </div>
