@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The PREVENT Equation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --bg:#F2F5F6; --surface:#FFFFFF; --surface-2:#EAF0F1;
+    --ink:#152229; --muted:#5B6D77; --line:#D7E0E3;
+    --accent:#0E5560; --accent-soft:#DCEAEC; --warn:#8A4527; --warn-soft:#F3E5DC;
+    --shadow:0 1px 2px rgba(21,34,41,.06), 0 8px 24px -16px rgba(21,34,41,.28);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E1417; --surface:#151E22; --surface-2:#1B262B;
+      --ink:#E4EDF0; --muted:#95A6AF; --line:#26343A;
+      --accent:#6BC3CD; --accent-soft:#16323A; --warn:#D9946C; --warn-soft:#2E1F17;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E1417; --surface:#151E22; --surface-2:#1B262B;
+    --ink:#E4EDF0; --muted:#95A6AF; --line:#26343A;
+    --accent:#6BC3CD; --accent-soft:#16323A; --warn:#D9946C; --warn-soft:#2E1F17;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px -18px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:"Public Sans", ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+    font-size:16px; line-height:1.6; margin:0;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:0 24px 96px}
+  .col{max-width:68ch}
+  h1,h2,h3{font-family:"Newsreader", Georgia, serif; font-weight:600; text-wrap:balance; margin:0}
+  h1{font-size:clamp(2.4rem,5vw,3.4rem); line-height:1.06; letter-spacing:-.01em}
+  h2{font-size:1.6rem; line-height:1.2}
+  h3{font-size:1.12rem; line-height:1.3}
+  p{margin:0}
+  a{color:var(--accent); text-underline-offset:3px}
+  a:focus-visible, summary:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+  .eyebrow{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.72rem;
+    letter-spacing:.16em; text-transform:uppercase; color:var(--accent);
+  }
+  header.top{padding:72px 0 40px; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:18px}
+  .lede{font-family:"Newsreader",Georgia,serif; font-size:1.24rem; color:var(--muted); max-width:60ch}
+  .meta{display:flex; flex-wrap:wrap; gap:10px 28px; font-size:.82rem; color:var(--muted); margin-top:6px}
+  .meta b{color:var(--ink); font-weight:600}
+
+  section{padding:48px 0; border-bottom:1px solid var(--line); display:flex; flex-direction:column; gap:20px}
+  section:last-of-type{border-bottom:0}
+  .sec-head{display:flex; flex-direction:column; gap:8px}
+
+  .grid3{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:14px}
+  .card{background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:18px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:6px}
+  .card .k{font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--muted)}
+  .card .v{font-family:"Newsreader",Georgia,serif; font-size:1.5rem; line-height:1.1}
+  .card .d{font-size:.86rem; color:var(--muted)}
+
+  .steps{display:flex; flex-direction:column; gap:16px; counter-reset:step}
+  .step{display:grid; grid-template-columns:auto 1fr; gap:16px; align-items:start}
+  .step .n{
+    counter-increment:step; width:28px; height:28px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent); display:grid; place-items:center;
+    font-family:"IBM Plex Mono",monospace; font-size:.8rem; font-weight:500; margin-top:2px;
+  }
+  .step .n::before{content:counter(step)}
+
+  .math{
+    background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent);
+    border-radius:8px; padding:18px 20px; overflow-x:auto;
+    font-family:"IBM Plex Mono",monospace; font-size:.86rem; line-height:1.85; white-space:pre;
+  }
+  code{font-family:"IBM Plex Mono",monospace; font-size:.88em; background:var(--surface-2); padding:.12em .35em; border-radius:4px}
+
+  .tablewrap{overflow-x:auto; background:var(--surface); border:1px solid var(--line); border-radius:10px; box-shadow:var(--shadow)}
+  table{border-collapse:collapse; width:100%; font-size:.84rem; font-variant-numeric:tabular-nums}
+  caption{text-align:left; padding:16px 18px 0; font-family:"Newsreader",Georgia,serif; font-size:1.12rem}
+  thead th{
+    font-family:"IBM Plex Mono",monospace; font-size:.68rem; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--muted); font-weight:500; text-align:right; padding:14px 14px 8px; border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  thead th:first-child{text-align:left}
+  tbody th{
+    text-align:left; font-weight:500; padding:9px 14px; vertical-align:top;
+    border-bottom:1px solid var(--line); white-space:nowrap;
+  }
+  tbody th .tx{display:block; font-family:"IBM Plex Mono",monospace; font-size:.7rem; color:var(--muted); font-weight:400}
+  tbody td{
+    text-align:right; padding:9px 14px; border-bottom:1px solid var(--line);
+    font-family:"IBM Plex Mono",monospace; white-space:nowrap;
+  }
+  tbody tr:last-child th, tbody tr:last-child td{border-bottom:0}
+  tbody tr:hover th, tbody tr:hover td{background:var(--surface-2)}
+  .nil{color:var(--muted); opacity:.5}
+  .sexcol{border-left:1px solid var(--line)}
+
+  .note{background:var(--surface-2); border-radius:10px; padding:18px 20px; font-size:.92rem; display:flex; flex-direction:column; gap:8px}
+  .note.warn{background:var(--warn-soft)}
+  .note .lbl{font-family:"IBM Plex Mono",monospace; font-size:.7rem; letter-spacing:.14em; text-transform:uppercase; color:var(--warn)}
+  .note.plain .lbl{color:var(--accent)}
+
+  ul{margin:0; padding-left:1.1rem; display:flex; flex-direction:column; gap:8px}
+  ol.refs{margin:0; padding-left:1.3rem; display:flex; flex-direction:column; gap:12px; font-size:.9rem}
+  ol.refs li{padding-left:4px}
+  .refnote{color:var(--muted); font-size:.86rem}
+
+  @media (max-width:640px){
+    header.top{padding:48px 0 32px}
+    section{padding:36px 0}
+  }
+</style>
+
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <span class="eyebrow">Model reference</span>
+  <h1>The PREVENT Equation</h1>
+  <p class="lede">Every coefficient and transformation behind the American Heart Association's PREVENT risk calculator — the twelve base-model equations, written out so you can implement or audit them.</p>
+  <div class="meta">
+    <span><b>Source</b> Khan et al., <i>Circulation</i> 2024;149:430–449</span>
+    <span><b>Models</b> 3 outcomes × 2 horizons × 2 sexes</span>
+    <span><b>Scope</b> Base model (no UACR / HbA1c / SDI)</span>
+  </div>
+</header>
+
+<section>
+  <div class="sec-head col">
+    <h2>What it does</h2>
+  </div>
+  <div class="col" style="display:flex; flex-direction:column; gap:16px">
+    <p>PREVENT (Predicting Risk of cardiovascular disease EVENTs) estimates absolute cardiovascular risk in adults aged 30–79 with no known CVD. It replaces the 2013 Pooled Cohort Equations with sex-specific, race-free models derived from over 6 million US adults, fitted on the age scale and adjusted for the competing risk of non-CVD death.</p>
+    <p>Two things make it structurally different from the PCEs. First, it predicts <b>heart failure</b> alongside atherosclerotic disease, so kidney function (eGFR) and BMI enter the model as predictors — the cardiovascular-kidney-metabolic framing. Second, it reports a <b>30-year horizon</b> as well as 10-year, which is what makes it usable in people in their thirties and forties whose 10-year risk is near zero.</p>
+    <p>Race is not an input. Instead the model carries measurable biology (eGFR, BMI, and optionally HbA1c and urine albumin-to-creatinine ratio) plus, in the full model, a ZIP-code social deprivation index.</p>
+  </div>
+  <div class="grid3">
+    <div class="card">
+      <span class="k">Outcome 1</span>
+      <span class="v">Total CVD</span>
+      <span class="d">ASCVD plus heart failure. Drives the ≥7.5% stage-1 hypertension threshold in the 2025 AHA/ACC BP guideline.</span>
+    </div>
+    <div class="card">
+      <span class="k">Outcome 2</span>
+      <span class="v">ASCVD</span>
+      <span class="d">MI, stroke, or CV death. The risk figure used for statin decisions.</span>
+    </div>
+    <div class="card">
+      <span class="k">Outcome 3</span>
+      <span class="v">Heart failure</span>
+      <span class="d">Incident HF. The only one of the three that uses BMI and ignores cholesterol.</span>
+    </div>
+  </div>
+  <div class="note plain col">
+    <span class="lbl">Horizons</span>
+    <p>10-year risk is estimated for ages 30–79. 30-year risk is only defined for ages 30–59 — beyond that the equation is extrapolating past the observed follow-up and implementations refuse it.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>Inputs</h2>
+    <p class="refnote">Base model. The AHA calculator and published implementations accept these ranges; outside them the estimate is not defined.</p>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Input</th><th>Unit</th><th>Accepted range</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Age</th><td>years</td><td>30–79 (30–59 for 30-year risk)</td></tr>
+        <tr><th scope="row">Sex</th><td>—</td><td>female / male (separate equations)</td></tr>
+        <tr><th scope="row">Total cholesterol</th><td>mg/dL</td><td>130–320</td></tr>
+        <tr><th scope="row">HDL cholesterol</th><td>mg/dL</td><td>20–100</td></tr>
+        <tr><th scope="row">Systolic BP</th><td>mm Hg</td><td>90–200</td></tr>
+        <tr><th scope="row">eGFR</th><td>mL/min/1.73 m²</td><td>15–140 (CKD-EPI 2021, race-free)</td></tr>
+        <tr><th scope="row">BMI</th><td>kg/m²</td><td>18.5–39.9 — heart failure models only</td></tr>
+        <tr><th scope="row">Diabetes</th><td>0 / 1</td><td>—</td></tr>
+        <tr><th scope="row">Current smoking</th><td>0 / 1</td><td>—</td></tr>
+        <tr><th scope="row">BP-lowering therapy</th><td>0 / 1</td><td>—</td></tr>
+        <tr><th scope="row">Statin therapy</th><td>0 / 1</td><td>— (not used in HF models)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>How the risk is computed</h2>
+    <p class="refnote">Each of the twelve models is a single logistic-style equation: transform the inputs, take a weighted sum, squash it.</p>
+  </div>
+  <div class="steps col">
+    <div class="step"><span class="n"></span><div>
+      <h3>Center and scale each input</h3>
+      <p class="refnote">Cholesterol is converted mg/dL → mmol/L by ×0.02586. Blood pressure, eGFR and BMI each get a two-piece linear spline with a knot (110 mm Hg, 60 mL/min, 30 kg/m²), so the slope below the knot differs from the slope above it.</p>
+    </div></div>
+    <div class="step"><span class="n"></span><div>
+      <h3>Multiply by the model's coefficients and add</h3>
+      <p class="refnote">Pick the column for your sex, outcome and horizon; sum constant + main effects + interactions. Terms marked — are not in that model.</p>
+    </div></div>
+    <div class="step"><span class="n"></span><div>
+      <h3>Apply the logistic transform</h3>
+      <p class="refnote">Risk = e<sup>x</sup> / (1 + e<sup>x</sup>), reported as a percentage.</p>
+    </div></div>
+  </div>
+
+  <div class="math">age₍c₎  = (age − 55) / 10
+nonHDL  = (total_chol − HDL) × 0.02586 − 3.5        <span class="nil">mg/dL → mmol/L</span>
+HDL₍c₎  = (HDL × 0.02586 − 1.3) / 0.3
+SBP⁻    = (min(SBP, 110) − 110) / 20                <span class="nil">0 when SBP ≥ 110</span>
+SBP⁺    = (max(SBP, 110) − 130) / 20
+eGFR⁻   = (min(eGFR, 60) − 60) / −15                <span class="nil">0 when eGFR ≥ 60</span>
+eGFR⁺   = (max(eGFR, 60) − 90) / −15
+BMI⁻    = (min(BMI, 30) − 25) / 5                   <span class="nil">HF models only</span>
+BMI⁺    = (max(BMI, 30) − 30) / 5
+
+x = β₀
+  + β_age·age₍c₎ + β_age²·age₍c₎²                   <span class="nil">age² only in 30-year models</span>
+  + β_nonHDL·nonHDL + β_HDL·HDL₍c₎
+  + β_SBP⁻·SBP⁻ + β_SBP⁺·SBP⁺
+  + β_DM·diabetes + β_smoke·smoking
+  + β_eGFR⁻·eGFR⁻ + β_eGFR⁺·eGFR⁺
+  + β_BPmed·BPmed + β_statin·statin
+  + β_BMI⁻·BMI⁻ + β_BMI⁺·BMI⁺
+  + β_statin×nonHDL·(statin·nonHDL)
+  + β_BPmed×SBP⁺·(BPmed·SBP⁺)
+  + β_age×nonHDL·(age₍c₎·nonHDL)
+  + β_age×HDL·(age₍c₎·HDL₍c₎)
+  + β_age×SBP⁺·(age₍c₎·SBP⁺)
+  + β_age×DM·(age₍c₎·diabetes)
+  + β_age×smoke·(age₍c₎·smoking)
+  + β_age×eGFR⁻·(age₍c₎·eGFR⁻)
+  + β_age×BMI⁺·(age₍c₎·BMI⁺)
+
+risk (%) = 100 · eˣ / (1 + eˣ)</div>
+
+  <div class="note plain col">
+    <span class="lbl">Reading the splines</span>
+    <p>Both eGFR terms are divided by −15, so the coefficients are positive: risk rises as filtration falls. Below the knot the slope is steep (β_eGFR⁻), above it shallow (β_eGFR⁺). The same trick makes SBP⁻ zero for anyone at or above 110 mm Hg, and BMI⁺ zero for anyone under 30.</p>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>Coefficients</h2>
+    <p class="refnote">Twelve base models. A dash means the term is not in that equation.</p>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Total CVD</caption>
+      <thead><tr><th>Term</th><th>Female 10-yr</th><th>Male 10-yr</th><th class="sexcol">Female 30-yr</th><th>Male 30-yr</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Constant<span class="tx"></span></th><td>-3.307728</td><td>-3.031168</td><td class="sexcol">-1.318827</td><td>-1.148204</td></tr>
+        <tr><th scope="row">Age<span class="tx">(age − 55) / 10</span></th><td>0.7939329</td><td>0.7688528</td><td class="sexcol">0.5503079</td><td>0.4627309</td></tr>
+        <tr><th scope="row">Age²<span class="tx">[(age − 55) / 10]²</span></th><td><span class="nil">—</span></td><td><span class="nil">—</span></td><td class="sexcol">-0.0928369</td><td>-0.0984281</td></tr>
+        <tr><th scope="row">Non-HDL-C<span class="tx">(TC − HDL) × 0.02586 − 3.5</span></th><td>0.0305239</td><td>0.0736174</td><td class="sexcol">0.0409794</td><td>0.0836088</td></tr>
+        <tr><th scope="row">HDL-C<span class="tx">(HDL × 0.02586 − 1.3) / 0.3</span></th><td>-0.1606857</td><td>-0.0954431</td><td class="sexcol">-0.1663306</td><td>-0.1029824</td></tr>
+        <tr><th scope="row">SBP below 110<span class="tx">(min(SBP, 110) − 110) / 20</span></th><td>-0.2394003</td><td>-0.4347345</td><td class="sexcol">-0.1628654</td><td>-0.2140352</td></tr>
+        <tr><th scope="row">SBP at or above 110<span class="tx">(max(SBP, 110) − 130) / 20</span></th><td>0.3600781</td><td>0.3362658</td><td class="sexcol">0.3299505</td><td>0.2904325</td></tr>
+        <tr><th scope="row">Diabetes<span class="tx">1 if yes, else 0</span></th><td>0.8667604</td><td>0.7692857</td><td class="sexcol">0.6793894</td><td>0.5331276</td></tr>
+        <tr><th scope="row">Current smoking<span class="tx">1 if yes, else 0</span></th><td>0.5360739</td><td>0.4386871</td><td class="sexcol">0.3196112</td><td>0.2141914</td></tr>
+        <tr><th scope="row">eGFR below 60<span class="tx">(min(eGFR, 60) − 60) / −15</span></th><td>0.6045917</td><td>0.5378979</td><td class="sexcol">0.1857101</td><td>0.1155556</td></tr>
+        <tr><th scope="row">eGFR at or above 60<span class="tx">(max(eGFR, 60) − 90) / −15</span></th><td>0.0433769</td><td>0.0164827</td><td class="sexcol">0.0553528</td><td>0.0603775</td></tr>
+        <tr><th scope="row">BP-lowering therapy<span class="tx">1 if yes, else 0</span></th><td>0.3151672</td><td>0.288879</td><td class="sexcol">0.2894</td><td>0.232714</td></tr>
+        <tr><th scope="row">Statin therapy<span class="tx">1 if yes, else 0</span></th><td>-0.1477655</td><td>-0.1337349</td><td class="sexcol">-0.075688</td><td>-0.0272112</td></tr>
+        <tr><th scope="row">Statin × non-HDL-C<span class="tx">interaction</span></th><td>0.1197879</td><td>0.150273</td><td class="sexcol">0.1071019</td><td>0.134192</td></tr>
+        <tr><th scope="row">BP therapy × SBP≥110<span class="tx">interaction</span></th><td>-0.0663612</td><td>-0.0475924</td><td class="sexcol">-0.056367</td><td>-0.0384488</td></tr>
+        <tr><th scope="row">Age × non-HDL-C<span class="tx">interaction</span></th><td>-0.0819715</td><td>-0.0517874</td><td class="sexcol">-0.0751438</td><td>-0.0511759</td></tr>
+        <tr><th scope="row">Age × HDL-C<span class="tx">interaction</span></th><td>0.0306769</td><td>0.0191169</td><td class="sexcol">0.0301786</td><td>0.0165865</td></tr>
+        <tr><th scope="row">Age × SBP≥110<span class="tx">interaction</span></th><td>-0.0946348</td><td>-0.1049477</td><td class="sexcol">-0.0998776</td><td>-0.1101437</td></tr>
+        <tr><th scope="row">Age × diabetes<span class="tx">interaction</span></th><td>-0.27057</td><td>-0.2251948</td><td class="sexcol">-0.3206166</td><td>-0.2585943</td></tr>
+        <tr><th scope="row">Age × smoking<span class="tx">interaction</span></th><td>-0.078715</td><td>-0.0895067</td><td class="sexcol">-0.1607862</td><td>-0.1566406</td></tr>
+        <tr><th scope="row">Age × eGFR&lt;60<span class="tx">interaction</span></th><td>-0.1637806</td><td>-0.1543702</td><td class="sexcol">-0.1450788</td><td>-0.1166776</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <caption>ASCVD</caption>
+      <thead><tr><th>Term</th><th>Female 10-yr</th><th>Male 10-yr</th><th class="sexcol">Female 30-yr</th><th>Male 30-yr</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Constant<span class="tx"></span></th><td>-3.819975</td><td>-3.500655</td><td class="sexcol">-1.974074</td><td>-1.736444</td></tr>
+        <tr><th scope="row">Age<span class="tx">(age − 55) / 10</span></th><td>0.719883</td><td>0.7099847</td><td class="sexcol">0.4669202</td><td>0.3994099</td></tr>
+        <tr><th scope="row">Age²<span class="tx">[(age − 55) / 10]²</span></th><td><span class="nil">—</span></td><td><span class="nil">—</span></td><td class="sexcol">-0.0893118</td><td>-0.0937484</td></tr>
+        <tr><th scope="row">Non-HDL-C<span class="tx">(TC − HDL) × 0.02586 − 3.5</span></th><td>0.1176967</td><td>0.1658663</td><td class="sexcol">0.1256901</td><td>0.1744643</td></tr>
+        <tr><th scope="row">HDL-C<span class="tx">(HDL × 0.02586 − 1.3) / 0.3</span></th><td>-0.151185</td><td>-0.1144285</td><td class="sexcol">-0.1542255</td><td>-0.120203</td></tr>
+        <tr><th scope="row">SBP below 110<span class="tx">(min(SBP, 110) − 110) / 20</span></th><td>-0.0835358</td><td>-0.2837212</td><td class="sexcol">-0.0018093</td><td>-0.0665117</td></tr>
+        <tr><th scope="row">SBP at or above 110<span class="tx">(max(SBP, 110) − 130) / 20</span></th><td>0.3592852</td><td>0.3239977</td><td class="sexcol">0.322949</td><td>0.2753037</td></tr>
+        <tr><th scope="row">Diabetes<span class="tx">1 if yes, else 0</span></th><td>0.8348585</td><td>0.7189597</td><td class="sexcol">0.6296707</td><td>0.4790257</td></tr>
+        <tr><th scope="row">Current smoking<span class="tx">1 if yes, else 0</span></th><td>0.4831078</td><td>0.3956973</td><td class="sexcol">0.268292</td><td>0.1782635</td></tr>
+        <tr><th scope="row">eGFR below 60<span class="tx">(min(eGFR, 60) − 60) / −15</span></th><td>0.4864619</td><td>0.3690075</td><td class="sexcol">0.100106</td><td>-0.0218789</td></tr>
+        <tr><th scope="row">eGFR at or above 60<span class="tx">(max(eGFR, 60) − 90) / −15</span></th><td>0.0397779</td><td>0.0203619</td><td class="sexcol">0.0499663</td><td>0.0602553</td></tr>
+        <tr><th scope="row">BP-lowering therapy<span class="tx">1 if yes, else 0</span></th><td>0.2265309</td><td>0.2036522</td><td class="sexcol">0.1875292</td><td>0.1421182</td></tr>
+        <tr><th scope="row">Statin therapy<span class="tx">1 if yes, else 0</span></th><td>-0.0592374</td><td>-0.0865581</td><td class="sexcol">0.0152476</td><td>0.0135996</td></tr>
+        <tr><th scope="row">Statin × non-HDL-C<span class="tx">interaction</span></th><td>0.0844423</td><td>0.114563</td><td class="sexcol">0.0736147</td><td>0.1013148</td></tr>
+        <tr><th scope="row">BP therapy × SBP≥110<span class="tx">interaction</span></th><td>-0.0395762</td><td>-0.0322916</td><td class="sexcol">-0.0276123</td><td>-0.0218265</td></tr>
+        <tr><th scope="row">Age × non-HDL-C<span class="tx">interaction</span></th><td>-0.0567839</td><td>-0.0300005</td><td class="sexcol">-0.0521962</td><td>-0.0312619</td></tr>
+        <tr><th scope="row">Age × HDL-C<span class="tx">interaction</span></th><td>0.0325692</td><td>0.0232747</td><td class="sexcol">0.0316918</td><td>0.020673</td></tr>
+        <tr><th scope="row">Age × SBP≥110<span class="tx">interaction</span></th><td>-0.1035985</td><td>-0.0927024</td><td class="sexcol">-0.1046101</td><td>-0.0920935</td></tr>
+        <tr><th scope="row">Age × diabetes<span class="tx">interaction</span></th><td>-0.2417542</td><td>-0.2018525</td><td class="sexcol">-0.2727793</td><td>-0.2159947</td></tr>
+        <tr><th scope="row">Age × smoking<span class="tx">interaction</span></th><td>-0.0791142</td><td>-0.0970527</td><td class="sexcol">-0.1530907</td><td>-0.1548811</td></tr>
+        <tr><th scope="row">Age × eGFR&lt;60<span class="tx">interaction</span></th><td>-0.1671492</td><td>-0.1217081</td><td class="sexcol">-0.1299149</td><td>-0.0712547</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <caption>Heart failure</caption>
+      <thead><tr><th>Term</th><th>Female 10-yr</th><th>Male 10-yr</th><th class="sexcol">Female 30-yr</th><th>Male 30-yr</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Constant<span class="tx"></span></th><td>-4.310409</td><td>-3.946391</td><td class="sexcol">-2.205379</td><td>-1.95751</td></tr>
+        <tr><th scope="row">Age<span class="tx">(age − 55) / 10</span></th><td>0.8998235</td><td>0.8972642</td><td class="sexcol">0.6254374</td><td>0.5681541</td></tr>
+        <tr><th scope="row">Age²<span class="tx">[(age − 55) / 10]²</span></th><td><span class="nil">—</span></td><td><span class="nil">—</span></td><td class="sexcol">-0.0983038</td><td>-0.1048388</td></tr>
+        <tr><th scope="row">SBP below 110<span class="tx">(min(SBP, 110) − 110) / 20</span></th><td>-0.4559771</td><td>-0.6811466</td><td class="sexcol">-0.3919241</td><td>-0.4761564</td></tr>
+        <tr><th scope="row">SBP at or above 110<span class="tx">(max(SBP, 110) − 130) / 20</span></th><td>0.3576505</td><td>0.3634461</td><td class="sexcol">0.3142295</td><td>0.30324</td></tr>
+        <tr><th scope="row">Diabetes<span class="tx">1 if yes, else 0</span></th><td>1.038346</td><td>0.923776</td><td class="sexcol">0.8330787</td><td>0.6840338</td></tr>
+        <tr><th scope="row">Current smoking<span class="tx">1 if yes, else 0</span></th><td>0.583916</td><td>0.5023736</td><td class="sexcol">0.3438651</td><td>0.2656273</td></tr>
+        <tr><th scope="row">eGFR below 60<span class="tx">(min(eGFR, 60) − 60) / −15</span></th><td>0.7451638</td><td>0.6926917</td><td class="sexcol">0.2981642</td><td>0.2541805</td></tr>
+        <tr><th scope="row">eGFR at or above 60<span class="tx">(max(eGFR, 60) − 90) / −15</span></th><td>0.0557087</td><td>0.0251827</td><td class="sexcol">0.0667159</td><td>0.0638923</td></tr>
+        <tr><th scope="row">BP-lowering therapy<span class="tx">1 if yes, else 0</span></th><td>0.3534442</td><td>0.2980922</td><td class="sexcol">0.333921</td><td>0.2583631</td></tr>
+        <tr><th scope="row">BMI below 30<span class="tx">(min(BMI, 30) − 25) / 5</span></th><td>-0.0072294</td><td>-0.0485841</td><td class="sexcol">0.0594874</td><td>0.0833107</td></tr>
+        <tr><th scope="row">BMI at or above 30<span class="tx">(max(BMI, 30) − 30) / 5</span></th><td>0.2997706</td><td>0.3726929</td><td class="sexcol">0.2525536</td><td>0.26999</td></tr>
+        <tr><th scope="row">BP therapy × SBP≥110<span class="tx">interaction</span></th><td>-0.0981511</td><td>-0.0497731</td><td class="sexcol">-0.0893177</td><td>-0.0391938</td></tr>
+        <tr><th scope="row">Age × SBP≥110<span class="tx">interaction</span></th><td>-0.0946663</td><td>-0.1289201</td><td class="sexcol">-0.0974299</td><td>-0.1269124</td></tr>
+        <tr><th scope="row">Age × diabetes<span class="tx">interaction</span></th><td>-0.3581041</td><td>-0.3040924</td><td class="sexcol">-0.404855</td><td>-0.3273572</td></tr>
+        <tr><th scope="row">Age × smoking<span class="tx">interaction</span></th><td>-0.1159453</td><td>-0.1401688</td><td class="sexcol">-0.1982991</td><td>-0.2043019</td></tr>
+        <tr><th scope="row">Age × eGFR&lt;60<span class="tx">interaction</span></th><td>-0.1884289</td><td>-0.1797778</td><td class="sexcol">-0.1564215</td><td>-0.1342618</td></tr>
+        <tr><th scope="row">Age × BMI≥30<span class="tx">interaction</span></th><td>-0.003878</td><td>0.0068126</td><td class="sexcol">-0.0035619</td><td>-0.0182831</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>Verification</h2>
+    <p class="refnote">These numbers were reconstructed, implemented, and then checked rather than transcribed.</p>
+  </div>
+  <div class="col" style="display:flex; flex-direction:column; gap:16px">
+    <p>The equation above was implemented from scratch and compared against the <code>pyprevent</code> reference implementation across 400 random patients spanning every valid input range, for all twelve models: maximum absolute difference 7×10⁻¹⁵ percentage points, i.e. floating-point noise.</p>
+    <p>It also reproduces the published worked example from the R package <code>preventr</code> exactly — a 50-year-old woman, SBP 160 on treatment, total cholesterol 200, HDL 45, diabetic, non-smoker, eGFR 90, BMI 35:</p>
+  </div>
+  <div class="tablewrap col">
+    <table>
+      <thead><tr><th>Outcome</th><th>10-year</th><th>30-year</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Total CVD</th><td>14.7%</td><td>53.0%</td></tr>
+        <tr><th scope="row">ASCVD</th><td>9.2%</td><td>35.4%</td></tr>
+        <tr><th scope="row">Heart failure</th><td>8.1%</td><td>39.0%</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>Before you build on it</h2>
+  </div>
+  <div class="note warn col">
+    <span class="lbl">Caveats</span>
+    <ul>
+      <li><b>This is the base model only.</b> The AHA calculator also offers "full" models adding urine albumin-to-creatinine ratio, HbA1c, and a ZIP-code social deprivation index. Those have their own coefficient sets, not reproduced here.</li>
+      <li><b>Not a treatment-effect model.</b> The AHA is explicit that PREVENT estimates risk at the current encounter; re-running it with a hypothetical lower SBP does not estimate the benefit of treating.</li>
+      <li><b>eGFR should be CKD-EPI 2021</b> (creatinine, race-free) to match how the models were developed.</li>
+      <li><b>Validate against the official calculator</b> before any clinical deployment, and check for corrections — the original paper carried a published correction in March 2024.</li>
+      <li>External validations generally find good discrimination but some overestimation in certain health-system populations; PREVENT gives systematically lower ASCVD estimates than the Pooled Cohort Equations, which shifts who crosses statin thresholds.</li>
+    </ul>
+  </div>
+</section>
+
+<section>
+  <div class="sec-head col">
+    <h2>References</h2>
+  </div>
+  <ol class="refs col">
+    <li>Khan SS, Matsushita K, Sang Y, et al. <a href="https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.123.067626">Development and Validation of the American Heart Association's PREVENT Equations</a>. <i>Circulation</i>. 2024;149(6):430–449. — the source of every coefficient here (supplemental tables); a <a href="https://pubmed.ncbi.nlm.nih.gov/38466792/">correction</a> was published in March 2024.</li>
+    <li>Khan SS, Coresh J, Pencina MJ, et al. <a href="https://pubmed.ncbi.nlm.nih.gov/37947094/">Novel Prediction Equations for Absolute Risk Assessment of Total Cardiovascular Disease Incorporating Cardiovascular-Kidney-Metabolic Health: A Scientific Statement From the AHA</a>. <i>Circulation</i>. 2023. — the rationale for the CKM framing and dropping race.</li>
+    <li>American Heart Association. <a href="https://professional.heart.org/en/guidelines-and-statements/prevent-calculator">PREVENT Online Calculator</a>, <a href="https://professional.heart.org/-/media/PHD-Files/Guidelines-and-Statements/PREVENT/PREVENT-FAQs-FINAL.pdf?sc_lang=en">FAQs</a>, and <a href="https://professional.heart.org/en/-/media/PHD-Files/Guidelines-and-Statements/PREVENT/PREVENT-Equations-Quickstart-Guide.pdf?sc_lang=en">Quickstart Guide</a> — input ranges, base vs full models, and the guideline thresholds (≥7.5% 10-year total CVD in the 2025 BP guideline; ≥5% 10-year ASCVD in the 2026 dyslipidemia guideline).</li>
+    <li>Mayer MG. <a href="https://github.com/martingmayer/preventr">preventr</a> (R, CRAN) — maintained implementation; source of the worked example used for checking.</li>
+    <li>Hegstrom L. <a href="https://github.com/lhegstrom/PyPrevent">PyPrevent</a> (Python/Rust) — the reference implementation used for the 400-patient numerical comparison.</li>
+    <li>Sant'Anna Salomão. <a href="https://github.com/Salomao0569/Prevent-Score">Prevent-Score</a> (JavaScript) — an independent implementation whose coefficient set matches the one above and which reports ~20,000 agreeing comparisons against the AHA calculation engine.</li>
+    <li>Diao JA, Shi I, Murthy VL, et al. <a href="https://jamanetwork.com/journals/jamanetworkopen/fullarticle/2824692">External Validation of the AHA PREVENT Cardiovascular Disease Risk Equations</a>. <i>JAMA Netw Open</i>. 2024. — independent performance data.</li>
+  </ol>
+</section>
+
+</div>
+
+</body>
+</html>

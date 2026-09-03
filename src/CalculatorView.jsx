@@ -85,30 +85,30 @@ function inputClass() {
 
 function VerticalPair({ baseline, treated, color, treatedLabel }) {
   const toH = (risk) => `${Math.min(100, Math.max(0, (risk ?? 0) * 100))}%`;
+  // Laid out as three grid rows (wells, labels, values) rather than two stacked
+  // columns, so a label that needs more room can never shift its own bar.
   return (
-    <div className="mt-1.5 flex items-end justify-center gap-3">
-      <div className="flex w-11 flex-col items-center">
-        <div className="relative h-[4.75rem] w-full overflow-hidden rounded-t-lg bg-slate-100">
-          <div
-            className="absolute inset-x-0 bottom-0 opacity-45 transition-all duration-700"
-            style={{ height: toH(baseline), background: color }}
-          />
-        </div>
-        <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-muted">Baseline</p>
-        <p className="text-[13px] font-bold tabular-nums text-ink">{baseline == null ? "—" : `${formatRiskPct(baseline)}%`}</p>
+    <div className="mt-1.5 mx-auto grid w-fit grid-cols-2 justify-items-center gap-x-3">
+      <div className="relative h-[4.75rem] w-11 overflow-hidden rounded-t-lg bg-slate-100">
+        <div
+          className="absolute inset-x-0 bottom-0 opacity-45 transition-all duration-700"
+          style={{ height: toH(baseline), background: color }}
+        />
       </div>
-      <div className="flex w-11 flex-col items-center">
-        <div className="relative h-[4.75rem] w-full overflow-hidden rounded-t-lg bg-slate-100">
-          <div
-            className="absolute inset-x-0 bottom-0 transition-all duration-700"
-            style={{ height: toH(treated ?? baseline), background: color }}
-          />
-        </div>
-        <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-muted">{treatedLabel}</p>
-        <p className="text-[13px] font-bold tabular-nums text-proceed">
-          {treated == null && baseline == null ? "—" : `${formatRiskPct(treated ?? baseline)}%`}
-        </p>
+      <div className="relative h-[4.75rem] w-11 overflow-hidden rounded-t-lg bg-slate-100">
+        <div
+          className="absolute inset-x-0 bottom-0 transition-all duration-700"
+          style={{ height: toH(treated ?? baseline), background: color }}
+        />
       </div>
+
+      <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-muted">Baseline</p>
+      <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-muted">{treatedLabel}</p>
+
+      <p className="text-[13px] font-bold tabular-nums text-ink">{baseline == null ? "—" : `${formatRiskPct(baseline)}%`}</p>
+      <p className="text-[13px] font-bold tabular-nums text-proceed">
+        {treated == null && baseline == null ? "—" : `${formatRiskPct(treated ?? baseline)}%`}
+      </p>
     </div>
   );
 }
