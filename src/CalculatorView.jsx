@@ -4,6 +4,7 @@ import { kfreRisk, uacrToMgG } from "./kfre.js";
 import { combinedCi, combinedHazardRatio, parseNum } from "./logic.js";
 import { preventRisk } from "./prevent.js";
 import { applyHazardRatio, formatRiskPct } from "./riskApply.js";
+import RiskReductionSection from "./RiskReductionSection.jsx";
 import { tone } from "./theme.js";
 
 const emptyForm = {
@@ -32,13 +33,13 @@ const startedMeds = [
   { key: "onGlp", label: "GLP-1 RA", tone: "glp" },
 ];
 
-function PillCheck({ checked, onChange, label, toneKey }) {
+function PillCheck({ checked, onChange, label, toneKey, className = "" }) {
   const t = tone[toneKey] ?? tone.ink;
   return (
     <label
-      className={`flex cursor-pointer items-center gap-2 rounded-xl border px-2.5 py-1.5 text-sm font-semibold transition ${
+      className={`flex cursor-pointer items-center gap-1.5 rounded-lg border px-2 py-1 text-[12px] font-semibold transition ${
         checked ? `${t.bg} ${t.border} ${t.text}` : "border-slate-200 bg-white text-ink hover:border-slate-300"
-      }`}
+      } ${className}`}
     >
       <input type="checkbox" className="accent-current" checked={checked} onChange={onChange} />
       {label}
@@ -70,10 +71,10 @@ function Choice({ options, value, onChange }) {
 
 function Field({ label, hint, children }) {
   return (
-    <label className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
-      <span className="text-[10px] font-bold uppercase tracking-wide text-muted">{label}</span>
+    <label className="rounded-xl border border-slate-200 bg-white px-2.5 py-1">
+      <span className="block whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-muted">{label}</span>
       {children}
-      {hint ? <span className="block text-[10px] text-muted">{hint}</span> : null}
+      {hint ? <span className="block text-[10px] leading-tight text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -85,26 +86,26 @@ function inputClass() {
 function VerticalPair({ baseline, treated, color, treatedLabel }) {
   const toH = (risk) => `${Math.min(100, Math.max(0, (risk ?? 0) * 100))}%`;
   return (
-    <div className="mt-2 flex items-end justify-center gap-4">
-      <div className="flex w-14 flex-col items-center">
-        <div className="relative h-32 w-full overflow-hidden rounded-t-xl bg-slate-100">
+    <div className="mt-1.5 flex items-end justify-center gap-3">
+      <div className="flex w-11 flex-col items-center">
+        <div className="relative h-[4.75rem] w-full overflow-hidden rounded-t-lg bg-slate-100">
           <div
             className="absolute inset-x-0 bottom-0 opacity-45 transition-all duration-700"
             style={{ height: toH(baseline), background: color }}
           />
         </div>
-        <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-muted">Baseline</p>
-        <p className="text-sm font-bold tabular-nums text-ink">{baseline == null ? "—" : `${formatRiskPct(baseline)}%`}</p>
+        <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-muted">Baseline</p>
+        <p className="text-[13px] font-bold tabular-nums text-ink">{baseline == null ? "—" : `${formatRiskPct(baseline)}%`}</p>
       </div>
-      <div className="flex w-14 flex-col items-center">
-        <div className="relative h-32 w-full overflow-hidden rounded-t-xl bg-slate-100">
+      <div className="flex w-11 flex-col items-center">
+        <div className="relative h-[4.75rem] w-full overflow-hidden rounded-t-lg bg-slate-100">
           <div
             className="absolute inset-x-0 bottom-0 transition-all duration-700"
             style={{ height: toH(treated ?? baseline), background: color }}
           />
         </div>
-        <p className="mt-1 text-[9px] font-bold uppercase tracking-wide text-muted">{treatedLabel}</p>
-        <p className="text-sm font-bold tabular-nums text-proceed">
+        <p className="mt-0.5 text-[8px] font-bold uppercase tracking-wide text-muted">{treatedLabel}</p>
+        <p className="text-[13px] font-bold tabular-nums text-proceed">
           {treated == null && baseline == null ? "—" : `${formatRiskPct(treated ?? baseline)}%`}
         </p>
       </div>
@@ -115,25 +116,25 @@ function VerticalPair({ baseline, treated, color, treatedLabel }) {
 function OutcomeCard({ title, category, hint, color, baseline, treated, treatedCi, extra, warning }) {
   const absDrop = baseline != null && treated != null ? (baseline - treated) * 100 : null;
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{category}</p>
-      <p className="text-sm font-semibold text-ink">{title}</p>
-      <p className="text-[10px] leading-snug text-muted">{hint}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-2">
+      <p className="text-[9px] font-bold uppercase tracking-wide text-muted">{category}</p>
+      <p className="text-[13px] font-semibold leading-tight text-ink">{title}</p>
+      <p className="text-[9px] leading-snug text-muted">{hint}</p>
       <VerticalPair baseline={baseline} treated={treated} color={color} treatedLabel="With meds" />
       {absDrop != null && absDrop > 0.05 ? (
-        <p className="mt-2 text-center text-[11px] text-proceed">
+        <p className="mt-1 text-center text-[10px] text-proceed">
           −{absDrop.toFixed(1)} points
           {treatedCi ? (
-            <span className="block text-[10px] text-muted">
+            <span className="block text-[9px] text-muted">
               treated 95% CI {formatRiskPct(treatedCi[0])}–{formatRiskPct(treatedCi[1])}%
             </span>
           ) : null}
         </p>
       ) : baseline != null ? (
-        <p className="mt-2 text-center text-[10px] text-muted">Tick a medicine to lower the treated bar.</p>
+        <p className="mt-1 text-center text-[9px] text-muted">Tick a medicine to lower the treated bar.</p>
       ) : null}
       {extra}
-      {warning ? <p className="mt-1 text-[10px] leading-snug text-continue">{warning}</p> : null}
+      {warning ? <p className="mt-0.5 text-[9px] leading-snug text-continue">{warning}</p> : null}
     </div>
   );
 }
@@ -236,62 +237,62 @@ export default function CalculatorView() {
   if (bmi != null && (bmi < 18.5 || bmi > 39.9)) notes.push("PREVENT BMI range is 18.5–39.9 kg/m².");
 
   return (
-    <div className="space-y-3">
-      <div className="overflow-hidden rounded-2xl border border-sglt/20 bg-white shadow-sm">
-        <div
-          className="border-b border-slate-100 px-3 py-2.5"
-          style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 100%)" }}
-        >
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Risk calculator</p>
-              <h2 className="font-serif text-base leading-tight text-ink">Baseline, then medicines</h2>
-            </div>
-            <button
-              type="button"
-              onClick={() => setForm(emptyForm)}
-              className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-muted hover:text-ink"
-            >
-              Clear
-            </button>
-          </div>
-          <p className="mt-0.5 text-[11px] text-muted">
-            KFRE kidney failure and PREVENT heart risk, then Neuen relative reductions for SGLT2i, ns-MRA, and GLP-1 RA.
-            Nothing is stored.
-          </p>
-
-          <form className="mt-2.5 space-y-2.5" onSubmit={(event) => event.preventDefault()}>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <Field label="Age" hint="years">
-                <input className={inputClass()} type="number" min="18" max="100" value={form.age} onChange={(e) => set("age", e.target.value)} />
-              </Field>
-              <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Sex</p>
-                <Choice
-                  value={form.sex}
-                  onChange={(id) => set("sex", id)}
-                  options={[
-                    { id: "female", label: "Female" },
-                    { id: "male", label: "Male" },
-                  ]}
-                />
+    <div className="space-y-2.5">
+      <div className="grid items-stretch gap-2.5 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)]">
+        <div className="overflow-hidden rounded-2xl border border-sglt/20 bg-white shadow-sm">
+          <div
+            className="h-full px-3 py-2"
+            style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 100%)" }}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Risk calculator</p>
+                <h2 className="font-serif text-base leading-tight text-ink">Baseline, then medicines</h2>
               </div>
-              <Field label="eGFR" hint="mL/min/1.73 m²">
-                <input className={inputClass()} type="number" min="5" max="140" step="1" value={form.egfr} onChange={(e) => set("egfr", e.target.value)} />
-              </Field>
-              <Field label="SBP" hint="mm Hg">
-                <input className={inputClass()} type="number" min="80" max="220" step="1" value={form.sbp} onChange={(e) => set("sbp", e.target.value)} />
-              </Field>
+              <button
+                type="button"
+                onClick={() => setForm(emptyForm)}
+                className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold text-muted hover:text-ink"
+              >
+                Clear
+              </button>
             </div>
+            <p className="mt-0.5 text-[11px] leading-snug text-muted">
+              KFRE and PREVENT first. Tick medicines to see relative and absolute reduction. Nothing is stored.
+            </p>
 
-            <div className="grid gap-2 lg:grid-cols-2">
-              <div className="rounded-xl border border-sglt/25 bg-sglt-soft/40 p-2.5">
+            <form className="mt-2 space-y-2" onSubmit={(event) => event.preventDefault()}>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Field label="Age" hint="years">
+                  <input className={inputClass()} type="number" min="18" max="100" value={form.age} onChange={(e) => set("age", e.target.value)} />
+                </Field>
+                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Sex</p>
+                  <Choice
+                    value={form.sex}
+                    onChange={(id) => set("sex", id)}
+                    options={[
+                      { id: "female", label: "Female" },
+                      { id: "male", label: "Male" },
+                    ]}
+                  />
+                </div>
+                <Field label="eGFR" hint="mL/min/1.73 m²">
+                  <input className={inputClass()} type="number" min="5" max="140" step="1" value={form.egfr} onChange={(e) => set("egfr", e.target.value)} />
+                </Field>
+                <Field label="SBP" hint="mm Hg">
+                  <input className={inputClass()} type="number" min="80" max="220" step="1" value={form.sbp} onChange={(e) => set("sbp", e.target.value)} />
+                </Field>
+              </div>
+
+              <div className="grid gap-1.5 xl:grid-cols-2">
+              <div className="rounded-xl border border-sglt/25 bg-sglt-soft/40 p-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Kidney failure · KFRE</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   <Field label="UACR" hint={form.uacrUnit === "mgg" ? "mg/g" : "mg/mmol"}>
                     <input className={inputClass()} type="number" min="0.1" step="1" value={form.uacr} onChange={(e) => set("uacr", e.target.value)} />
                   </Field>
-                  <div className="rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
+                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-1">
                     <p className="text-[10px] font-bold uppercase tracking-wide text-muted">ACR unit</p>
                     <Choice
                       value={form.uacrUnit}
@@ -303,7 +304,7 @@ export default function CalculatorView() {
                     />
                   </div>
                 </div>
-                <div className="mt-2 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5">
+                <div className="mt-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1">
                   <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Region</p>
                   <Choice
                     value={form.northAmerica ? "na" : "other"}
@@ -316,9 +317,9 @@ export default function CalculatorView() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-glp/25 bg-glp-soft/50 p-2.5">
+              <div className="rounded-xl border border-glp/25 bg-glp-soft/50 p-2">
                 <p className="text-[10px] font-bold uppercase tracking-wide text-glp">Heart · PREVENT base</p>
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
                   <Field label="Total chol." hint="mg/dL">
                     <input className={inputClass()} type="number" min="80" max="400" step="1" value={form.tc} onChange={(e) => set("tc", e.target.value)} />
                   </Field>
@@ -329,41 +330,44 @@ export default function CalculatorView() {
                     <input className={inputClass()} type="number" min="15" max="50" step="0.1" value={form.bmi} onChange={(e) => set("bmi", e.target.value)} />
                   </Field>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <PillCheck checked={form.diabetes} onChange={(e) => set("diabetes", e.target.checked)} label="Diabetes" toneKey="sglt" />
-                  <PillCheck checked={form.smoking} onChange={(e) => set("smoking", e.target.checked)} label="Current smoking" toneKey="mra" />
-                  <PillCheck checked={form.bpmed} onChange={(e) => set("bpmed", e.target.checked)} label="BP therapy" toneKey="glp" />
-                  <PillCheck checked={form.statin} onChange={(e) => set("statin", e.target.checked)} label="Statin" toneKey="rasi" />
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                  <PillCheck className="w-full" checked={form.diabetes} onChange={(e) => set("diabetes", e.target.checked)} label="Diabetes" toneKey="sglt" />
+                  <PillCheck className="w-full" checked={form.smoking} onChange={(e) => set("smoking", e.target.checked)} label="Smoking" toneKey="mra" />
+                  <PillCheck className="w-full" checked={form.bpmed} onChange={(e) => set("bpmed", e.target.checked)} label="BP therapy" toneKey="glp" />
+                  <PillCheck className="w-full" checked={form.statin} onChange={(e) => set("statin", e.target.checked)} label="Statin" toneKey="rasi" />
                 </div>
               </div>
-            </div>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Already started</span>
-              {startedMeds.map((med) => (
-                <PillCheck
-                  key={med.key}
-                  checked={form[med.key]}
-                  onChange={(e) => set(med.key, e.target.checked)}
-                  label={med.label}
-                  toneKey={med.tone}
-                />
-              ))}
-              <span className="text-[11px] text-muted">RASi is already in the KFRE / PREVENT baseline.</span>
-            </div>
-          </form>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Already started</span>
+                {startedMeds.map((med) => (
+                  <PillCheck
+                    key={med.key}
+                    checked={form[med.key]}
+                    onChange={(e) => set(med.key, e.target.checked)}
+                    label={med.label}
+                    toneKey={med.tone}
+                  />
+                ))}
+                <span className="text-[10px] text-muted">RASi is in the baseline.</span>
+              </div>
+            </form>
+          </div>
         </div>
+
+        <RiskReductionSection form={form} />
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div
-          className="px-3 py-3"
+          className="px-3 py-2"
           style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 55%)" }}
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Absolute risk</p>
-              <h3 className="font-serif text-lg text-ink">Baseline vs selected medicines</h3>
+              <h3 className="font-serif text-base leading-tight text-ink">Baseline vs selected medicines</h3>
             </div>
             <div className="flex flex-wrap gap-2">
               <div>
@@ -390,12 +394,12 @@ export default function CalculatorView() {
               </div>
             </div>
           </div>
-          <p className="mt-1 text-[11px] text-muted">
+          <p className="mt-0.5 text-[10px] text-muted">
             Faint bar is KFRE or PREVENT. Solid bar applies Neuen Figures 1–2 hazard ratios as 1 − (1 − baseline)
             <sup>HR</sup>.
           </p>
 
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <OutcomeCard
               category="Kidney"
               title="Kidney failure"
@@ -425,27 +429,27 @@ export default function CalculatorView() {
               treated={ascvdTreated}
               treatedCi={ascvdTreatedCi}
               extra={
-                <p className="mt-1 text-center text-[10px] text-muted">
+                <p className="mt-0.5 text-center text-[9px] text-muted">
                   Reduced with the Neuen MACE hazard ratio.
                 </p>
               }
               warning={!ascvdBase ? "Needs age, sex, SBP, eGFR, total cholesterol, and HDL." : null}
             />
-            <div className="rounded-2xl border border-slate-200 bg-white p-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Total CVD</p>
-              <p className="text-sm font-semibold text-ink">PREVENT total CVD</p>
-              <p className="text-[10px] leading-snug text-muted">
+            <div className="rounded-xl border border-slate-200 bg-white p-2">
+              <p className="text-[9px] font-bold uppercase tracking-wide text-muted">Total CVD</p>
+              <p className="text-[13px] font-semibold leading-tight text-ink">PREVENT total CVD</p>
+              <p className="text-[9px] leading-snug text-muted">
                 ASCVD plus HF. Shown as baseline only — not a Neuen endpoint.
               </p>
               <VerticalPair baseline={cvdBase} treated={cvdBase} color="#3d5a80" treatedLabel="Baseline" />
-              <p className="mt-2 text-center text-[11px] tabular-nums text-ink">
+              <p className="mt-1 text-center text-[10px] tabular-nums text-ink">
                 {cvdBase != null ? `${formatRiskPct(cvdBase)}% ${heartYears}-year` : "Enter PREVENT inputs."}
               </p>
             </div>
           </div>
         </div>
 
-        <div className="border-t border-slate-100 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-muted">
+        <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] leading-relaxed text-muted">
           {notes.length > 0 ? (
             <ul className="mb-2 space-y-1 text-continue">
               {notes.map((note) => (

@@ -144,7 +144,7 @@ function BarTrack({ pct, ci, barClass }) {
   const hi = ci ? Math.max(0, Math.round((1 - ci[0]) * 100)) : 0;
   const showCi = Boolean(ci && pct > 0);
   return (
-    <div className="relative h-3.5 rounded-full bg-slate-100">
+    <div className="relative h-2.5 rounded-full bg-slate-100">
       {showCi ? (
         <div
           className={`absolute inset-y-0 rounded-full ${barClass} opacity-25`}
@@ -154,7 +154,7 @@ function BarTrack({ pct, ci, barClass }) {
       <div className={`h-full rounded-full ${barClass} transition-all duration-700`} style={{ width: toPct(pct) }} />
       {showCi ? (
         <span
-          className="pointer-events-none absolute top-1/2 z-[1] h-3.5 -translate-y-1/2 rounded-sm border-x-2 border-ink/70"
+          className="pointer-events-none absolute top-1/2 z-[1] h-2.5 -translate-y-1/2 rounded-sm border-x-2 border-ink/70"
           style={{ left: toPct(Math.min(lo, hi)), width: toPct(Math.abs(hi - lo)) }}
           title={`95% CI ${formatReductionCi(ci)}`}
         />
@@ -163,78 +163,56 @@ function BarTrack({ pct, ci, barClass }) {
   );
 }
 
-function SummaryCard({ outcome, livePct, liveCi, potentialPct, anyStarted }) {
+function OutcomeTile({ outcome, started, potential, anyStarted }) {
   const Icon = icons[outcome.icon];
+  const livePct = relativeReductionPct(combinedHazardRatio(outcome, started));
+  const liveCi = combinedCi(outcome, started);
+  const potentialPct = relativeReductionPct(combinedHazardRatio(outcome, potential));
   const toGlow = (pct) => 0.12 + (pct / outcome.maxPct) * 0.88;
   const glow = toGlow(livePct);
   const potentialGlow = toGlow(potentialPct);
   const fill = mixHex(outcome.fillFrom, outcome.fillTo, anyStarted ? glow : 0.18);
 
   return (
-    <div className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-2 py-2">
-      <div className="h-16 w-16 shrink-0">
-        <Icon fill={fill} glow={glow} potentialGlow={potentialGlow} pulse={anyStarted && livePct >= 30} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{outcome.category}</p>
-        <p className="text-sm font-semibold text-ink">{outcome.label}</p>
-        <p className={`text-lg font-bold tabular-nums leading-tight ${outcome.valueClass}`}>↓{livePct}%</p>
-        {anyStarted ? <CiNote ci={liveCi} /> : <p className="text-[10px] text-muted">risk reduction</p>}
-        {potentialPct > livePct ? <p className="text-[10px] text-muted">up to ↓{potentialPct}%</p> : null}
-      </div>
-    </div>
-  );
-}
-
-function DrugBars({ outcome, started, potential, anyStarted }) {
-  const livePct = relativeReductionPct(combinedHazardRatio(outcome, started));
-  const liveCi = combinedCi(outcome, started);
-  const potentialPct = relativeReductionPct(combinedHazardRatio(outcome, potential));
-
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-ink">{outcome.label}</p>
-          <p className="text-[10px] leading-snug text-muted">{outcome.hint}</p>
+    <div className="rounded-xl border border-slate-200 bg-white p-2">
+      <div className="flex items-center gap-2">
+        <div className="h-10 w-10 shrink-0">
+          <Icon fill={fill} glow={glow} potentialGlow={potentialGlow} pulse={anyStarted && livePct >= 30} />
         </div>
-        <div className="text-right">
-          <p className="text-lg font-bold tabular-nums leading-tight text-proceed">↓{livePct}%</p>
-          {anyStarted ? <CiNote ci={liveCi} /> : <p className="text-[10px] text-muted">risk reduction</p>}
+        <div className="min-w-0 flex-1">
+          <p className="text-[9px] font-bold uppercase tracking-wide text-muted">{outcome.category}</p>
+          <p className="truncate text-[12px] font-semibold leading-tight text-ink">{outcome.label}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className={`text-base font-bold tabular-nums leading-none ${outcome.valueClass}`}>↓{livePct}%</p>
+          {anyStarted ? <CiNote ci={liveCi} /> : <p className="text-[9px] text-muted">risk reduction</p>}
         </div>
       </div>
 
-      <div className="mt-2.5 space-y-1.5">
+      <div className="mt-1.5 space-y-1">
         {riskAgents.map((agent) => {
           const t = tone[agent.tone];
-          const hr = outcome.hrs[agent.id];
-          const classPct = relativeReductionPct(hr);
+          const classPct = relativeReductionPct(outcome.hrs[agent.id]);
           const on = started[agent.id];
           const shownPct = on ? classPct : 0;
           return (
-            <div key={agent.id} className={`grid grid-cols-[4.75rem_minmax(0,1fr)_3.1rem] items-center gap-2 ${on ? "" : "opacity-60"}`}>
-              <span className={`flex items-center gap-1 text-[11px] font-semibold ${t.text}`}>
+            <div key={agent.id} className={`grid grid-cols-[4.1rem_minmax(0,1fr)_2.15rem] items-center gap-1 ${on ? "" : "opacity-55"}`}>
+              <span className={`flex items-center gap-1 text-[10px] font-semibold ${t.text}`}>
                 {on ? <span className={`inline-block h-1.5 w-1.5 rounded-full ${t.bar}`} /> : null}
                 {agent.name}
               </span>
               <BarTrack pct={shownPct} ci={on ? outcome.ci[agent.id] : null} barClass={t.bar} />
-              <span className="text-right text-[11px] font-semibold leading-tight tabular-nums text-ink">
-                {shownPct}%
-                {on ? <CiNote ci={outcome.ci[agent.id]} /> : null}
-              </span>
+              <span className="text-right text-[10px] font-semibold tabular-nums text-ink">{shownPct}%</span>
             </div>
           );
         })}
-        <div className="grid grid-cols-[4.75rem_minmax(0,1fr)_3.1rem] items-center gap-2 border-t border-slate-100 pt-1.5">
-          <span className="text-[11px] font-semibold text-ink">Together</span>
+        <div className="grid grid-cols-[4.1rem_minmax(0,1fr)_2.15rem] items-center gap-1 border-t border-slate-100 pt-1">
+          <span className="text-[10px] font-semibold text-ink">Together</span>
           <BarTrack pct={livePct} ci={anyStarted ? liveCi : null} barClass="bg-proceed" />
-          <span className="text-right text-[11px] font-semibold leading-tight tabular-nums text-proceed">
-            {livePct}%
-            {anyStarted ? <CiNote ci={liveCi} /> : null}
-          </span>
+          <span className="text-right text-[10px] font-semibold tabular-nums text-proceed">{livePct}%</span>
         </div>
         {anyStarted && potentialPct > livePct ? (
-          <p className="pt-0.5 text-[10px] text-muted">Indicated add-ons could reach ↓{potentialPct}%.</p>
+          <p className="text-[9px] text-muted">Add-ons could reach ↓{potentialPct}%.</p>
         ) : null}
       </div>
     </div>
@@ -255,7 +233,7 @@ function FootnoteButton({ open, onClick, children }) {
   );
 }
 
-export default function RiskReductionSection({ form, agents }) {
+export default function RiskReductionSection({ form, agents = {} }) {
   const [panel, setPanel] = useState(null);
 
   const started = useMemo(
@@ -280,57 +258,41 @@ export default function RiskReductionSection({ form, agents }) {
   const anyPotential = potential.sglt2i || potential.nsmra || potential.glp1;
   const startedCount = [started.sglt2i, started.nsmra, started.glp1].filter(Boolean).length;
   const vitality = anyStarted ? 0.55 : 0.12;
+  const potentialForTiles = anyPotential ? potential : ALL_THREE;
 
   function togglePanel(id) {
     setPanel((current) => (current === id ? null : id));
   }
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div
-        className="border-b border-slate-200 px-3 py-3"
+        className="flex flex-1 flex-col border-b border-slate-200 px-3 py-2"
         style={{
           background: `linear-gradient(180deg, ${mixHex("#f8fafc", "#e6f6ee", vitality)} 0%, #ffffff 100%)`,
         }}
       >
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Estimated risk reduction</p>
-            <h3 className="font-serif text-lg text-ink">Cardiorenal risk reduction</h3>
-          </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Estimated risk reduction</p>
+          <h3 className="font-serif text-base leading-tight text-ink">Cardiorenal risk reduction</h3>
         </div>
-        <p className="mt-1 text-[11px] leading-snug text-muted">Relative risk reduction on top of RASi (the baseline). Ranges are 95% CIs.</p>
+        <p className="mt-0.5 text-[11px] leading-snug text-muted">Relative reduction on top of RASi. Ranges are 95% CIs.</p>
 
-        <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          {riskOutcomes.map((outcome) => {
-            const livePct = relativeReductionPct(combinedHazardRatio(outcome, started));
-            const liveCi = combinedCi(outcome, started);
-            const potentialPct = relativeReductionPct(
-              combinedHazardRatio(outcome, anyPotential ? potential : ALL_THREE),
-            );
-            return (
-              <div key={outcome.id} className="space-y-2">
-                <SummaryCard
-                  outcome={outcome}
-                  livePct={livePct}
-                  liveCi={liveCi}
-                  potentialPct={potentialPct}
-                  anyStarted={anyStarted}
-                />
-                <DrugBars
-                  outcome={outcome}
-                  started={started}
-                  potential={potential}
-                  anyStarted={anyStarted}
-                />
-              </div>
-            );
-          })}
+        <div className="mt-2 grid flex-1 grid-cols-2 gap-2">
+          {riskOutcomes.map((outcome) => (
+            <OutcomeTile
+              key={outcome.id}
+              outcome={outcome}
+              started={started}
+              potential={potentialForTiles}
+              anyStarted={anyStarted}
+            />
+          ))}
         </div>
-        <p className="mt-2 text-[11px] text-muted">
+        <p className="mt-1.5 text-[10px] text-muted">
           {anyStarted
             ? `${startedCount} of 3 pillars started — bars and organ fill rise as medicines are added.`
-            : "No pillars started yet. Values are 0% until a medicine is ticked. Faint fill is combination therapy."}
+            : "Tick a medicine in the form. Faint fill is combination therapy (up to the Together value)."}
         </p>
       </div>
 

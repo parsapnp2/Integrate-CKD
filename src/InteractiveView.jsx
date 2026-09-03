@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { indications } from "./data.js";
 import { evaluatePatient } from "./logic.js";
 import { bandStyle, tone } from "./theme.js";
-import RiskReductionSection from "./RiskReductionSection.jsx";
 
 const emptyForm = {
   k: "",
@@ -320,8 +319,6 @@ export default function InteractiveView() {
           </ul>
         </div>
       ) : null}
-
-      <RiskReductionSection form={form} agents={result.agents} />
     </div>
   );
 }
