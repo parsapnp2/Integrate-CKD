@@ -7,9 +7,12 @@ function matchesFilter(check, kFilter) {
   return (check.bands ?? [check.band]).includes(kFilter);
 }
 
-function Section({ title, hint, action, children, className = "" }) {
+function Section({ title, hint, action, children, className = "", border = "border-sglt/20", tinted = true }) {
   return (
-    <section className={`rounded-2xl border border-slate-200/80 bg-white p-3 shadow-sm ${className}`}>
+    <section
+      className={`rounded-2xl border ${border} bg-white p-3 shadow-sm ${className}`}
+      style={tinted ? { background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 100%)" } : undefined}
+    >
       <div className="mb-2.5 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold tracking-tight text-ink">{title}</h2>
         <div className="flex items-center gap-3">
@@ -262,7 +265,12 @@ export default function ChartView() {
         </div>
       </Section>
 
-      <Section title="Do not initiate or titrate if" className="border-pause/20 bg-pause-soft">
+      <Section
+        title="Do not initiate or titrate if"
+        border="border-pause/20"
+        className="bg-pause-soft"
+        tinted={false}
+      >
         <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">
           {stopRules.map((rule) => (
             <div key={rule.label} className="rounded-lg bg-white/90 px-2.5 py-1.5 shadow-sm">

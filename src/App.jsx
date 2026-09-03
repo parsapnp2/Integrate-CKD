@@ -14,13 +14,7 @@ export default function App() {
   const [tab, setTab] = useState("chart");
 
   return (
-    <div
-      className={`min-h-screen ${
-        tab === "interactive" || tab === "calculator"
-          ? "bg-[linear-gradient(180deg,#e6f6ee_0%,#eef3f7_38%,#eef3f7_100%)]"
-          : ""
-      }`}
-    >
+    <div className="min-h-screen bg-[linear-gradient(180deg,#e6f6ee_0%,#eef3f7_38%,#eef3f7_100%)]">
       <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-2 px-4 py-1.5 sm:px-5">
           <div className="min-w-0">
