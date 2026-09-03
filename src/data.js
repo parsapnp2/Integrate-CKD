@@ -116,8 +116,8 @@ export const steps = [
     ],
     next: "Check K⁺ 2–4 weeks after start or dose change, then add GLP-1 RA.",
     details: [
-      "Consider first if eGFR < 25 before SGLT2i.",
-      "Gradual uptitration.",
+      "Consider first if eGFR ≈ 25, before SGLT2i.",
+      "Gradual and slow uptitration.",
       "Check / re-test K⁺.",
     ],
   },
@@ -158,7 +158,7 @@ export const steps = [
 ];
 
 export const stopRules = [
-  { label: "SBP < 90", note: "Any agent" },
+  { label: "SBP < 90", note: "systolic / orthostatic — RASi / ns-MRA / SGLT2i" },
   { label: "eGFR dip ≥ 30%", note: "vs last labs" },
   { label: "K⁺ > 4.8", note: "RASi / ns-MRA" },
   { label: "HbA1c > 10%", note: "SGLT2i start" },
