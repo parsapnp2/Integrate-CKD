@@ -395,7 +395,7 @@ export default function CalculatorView() {
             </div>
           </div>
           <p className="mt-0.5 text-[10px] text-muted">
-            Faint bar is KFRE or PREVENT. Solid bar applies Neuen Figures 1–2 hazard ratios as 1 − (1 − baseline)
+            Faint bar is KFRE or PREVENT. Solid bar applies the trial hazard ratios as 1 − (1 − baseline)
             <sup>HR</sup>.
           </p>
 
@@ -421,16 +421,17 @@ export default function CalculatorView() {
               warning={!hfBase ? "Needs age, sex, SBP, eGFR, and BMI." : null}
             />
             <OutcomeCard
-              category="ASCVD"
-              title="ASCVD"
-              hint={`PREVENT ${heartYears}-year MI, stroke, or CV death`}
+              category="MACE"
+              title="MACE"
+              hint={`PREVENT ${heartYears}-year ASCVD as a stand-in`}
               color="#1a365d"
               baseline={ascvdBase}
               treated={ascvdTreated}
               treatedCi={ascvdTreatedCi}
               extra={
                 <p className="mt-0.5 text-center text-[9px] text-muted">
-                  Reduced with the Neuen MACE hazard ratio.
+                  Baseline is PREVENT ASCVD (MI, fatal CHD, stroke), which omits heart-failure and sudden
+                  cardiac death — so it understates true MACE.
                 </p>
               }
               warning={!ascvdBase ? "Needs age, sex, SBP, eGFR, total cholesterol, and HDL." : null}
@@ -439,7 +440,7 @@ export default function CalculatorView() {
               <p className="text-[9px] font-bold uppercase tracking-wide text-muted">Total CVD</p>
               <p className="text-[13px] font-semibold leading-tight text-ink">PREVENT total CVD</p>
               <p className="text-[9px] leading-snug text-muted">
-                ASCVD plus HF. Shown as baseline only — not a Neuen endpoint.
+                ASCVD plus HF. Shown as baseline only — no trial reports this composite.
               </p>
               <VerticalPair baseline={cvdBase} treated={cvdBase} color="#3d5a80" treatedLabel="Baseline" />
               <p className="mt-1 text-center text-[10px] tabular-nums text-ink">
@@ -476,8 +477,11 @@ export default function CalculatorView() {
             </a>
           </p>
           <p className="mt-1">
-            Treatment HRs from Neuen et al. Circulation 2024, Figures 1–2, versus conventional care that already includes
-            RASi. Applied as an approximation on the absolute-risk scale. Visual aid only.
+            SGLT2i hazard ratios: kidney failure 0.67 (Lancet 2022;400:1788–1801), MACE 0.89 and all-cause mortality
+            0.89 (Lancet Diabetes Endocrinol 2024;12:545–557), heart failure 0.68 (JAMA Cardiol 2021;6:148–158).
+            ns-MRA and GLP-1 RA values, and the combination structure, from Neuen et al. Circulation 2024, Figures 1–2.
+            All are versus conventional care that already includes RASi, and are applied as an approximation on the
+            absolute-risk scale. Visual aid only.
           </p>
         </div>
       </div>

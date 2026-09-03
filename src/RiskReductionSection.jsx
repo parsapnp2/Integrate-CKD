@@ -310,10 +310,12 @@ export default function RiskReductionSection({ form, agents = {} }) {
         {panel === "sources" ? (
           <div className="mt-2 space-y-2 text-[11px] leading-relaxed text-muted">
             <p>
-              RASi is baseline (conventional care). These are relative reductions from trials in type 2 diabetes with
-              albuminuria; they are shown even if this patient’s labs differ. Single-agent, two-drug, and three-drug
-              values follow Neuen Figures 1–2. Ranges are 95% CIs (dual CIs use the paper’s independent log-HR standard
-              errors).
+              RASi is baseline (conventional care). These are relative reductions from randomised trials; they are
+              shown even if this patient’s labs differ. SGLT2i values come from the large collaborative meta-analyses
+              cited below. ns-MRA and GLP-1 RA values, and the structure of the two-drug and three-drug combinations,
+              follow Neuen Figures 1–2 — each combination containing SGLT2i is re-anchored to the SGLT2i hazard ratio
+              shown here, so that a combination and its parts stay consistent. Ranges are 95% CIs (dual CIs use
+              Neuen’s independent log-HR standard errors).
             </p>
             {riskSources.map((source) => (
               <p key={source.id}>
