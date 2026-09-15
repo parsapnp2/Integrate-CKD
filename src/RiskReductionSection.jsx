@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { lifetimeGainsAge50, riskAgents, riskOutcomes, riskSources } from "./data.js";
+import { useMemo } from "react";
+import { riskAgents, riskOutcomes } from "./data.js";
 import { combinedCi, combinedHazardRatio, formatReductionCi, relativeReductionPct } from "./logic.js";
 import { tone } from "./theme.js";
 
@@ -100,7 +100,7 @@ function MaceMark(props) {
   );
 }
 
-function MortalityMark(props) {
+function CvDeathMark(props) {
   return (
     <FillShape
       {...props}
@@ -125,14 +125,14 @@ const icons = {
   heart: HeartMark,
   kidney: KidneyMark,
   mace: MaceMark,
-  mortality: MortalityMark,
+  cvdeath: CvDeathMark,
 };
 
 function CiNote({ ci }) {
   const range = formatReductionCi(ci);
   if (!range) return null;
   return (
-    <span className="block text-[9px] font-medium tabular-nums text-muted" title="95% CI from Neuen Figures 1–2">
+    <span className="block text-[9px] font-medium tabular-nums text-muted" title="95% CI for the selected medicines; see Sources and evidence in Calculator for trial and model details">
       {range}
     </span>
   );
@@ -144,7 +144,7 @@ function BarTrack({ pct, ci, barClass }) {
   const hi = ci ? Math.max(0, Math.round((1 - ci[0]) * 100)) : 0;
   const showCi = Boolean(ci && pct > 0);
   return (
-    <div className="relative h-2.5 rounded-full bg-slate-100">
+    <div className="relative h-3 rounded-full bg-slate-100">
       {showCi ? (
         <div
           className={`absolute inset-y-0 rounded-full ${barClass} opacity-25`}
@@ -154,7 +154,7 @@ function BarTrack({ pct, ci, barClass }) {
       <div className={`h-full rounded-full ${barClass} transition-all duration-700`} style={{ width: toPct(pct) }} />
       {showCi ? (
         <span
-          className="pointer-events-none absolute top-1/2 z-[1] h-2.5 -translate-y-1/2 rounded-sm border-x-2 border-ink/70"
+          className="pointer-events-none absolute top-1/2 z-[1] h-3 -translate-y-1/2 rounded-sm border-x-2 border-ink/70"
           style={{ left: toPct(Math.min(lo, hi)), width: toPct(Math.abs(hi - lo)) }}
           title={`95% CI ${formatReductionCi(ci)}`}
         />
@@ -174,14 +174,14 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
   const fill = mixHex(outcome.fillFrom, outcome.fillTo, anyStarted ? glow : 0.18);
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-2">
+    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-2">
       <div className="flex items-center gap-2">
-        <div className="h-10 w-10 shrink-0">
+        <div className="h-12 w-12 shrink-0">
           <Icon fill={fill} glow={glow} potentialGlow={potentialGlow} pulse={anyStarted && livePct >= 30} />
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted">{outcome.category}</p>
-          <p className="truncate text-[12px] font-semibold leading-tight text-ink">{outcome.label}</p>
+          <p className="break-words text-[12px] font-semibold leading-tight text-ink">{outcome.label}</p>
         </div>
         <div className="shrink-0 text-right">
           <p className={`text-base font-bold tabular-nums leading-none ${outcome.valueClass}`}>↓{livePct}%</p>
@@ -189,7 +189,7 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
         </div>
       </div>
 
-      <div className="mt-1.5 space-y-1">
+      <div className="mt-2 flex flex-1 flex-col justify-around gap-1.5">
         {riskAgents.map((agent) => {
           const t = tone[agent.tone];
           const classPct = relativeReductionPct(outcome.hrs[agent.id]);
@@ -206,7 +206,7 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
             </div>
           );
         })}
-        <div className="grid grid-cols-[4.1rem_minmax(0,1fr)_2.15rem] items-center gap-1 border-t border-slate-100 pt-1">
+        <div className="grid grid-cols-[4.1rem_minmax(0,1fr)_2.15rem] items-center gap-1 border-t border-slate-100 pt-1.5">
           <span className="text-[10px] font-semibold text-ink">Together</span>
           <BarTrack pct={livePct} ci={anyStarted ? liveCi : null} barClass="bg-proceed" />
           <span className="text-right text-[10px] font-semibold tabular-nums text-proceed">{livePct}%</span>
@@ -219,23 +219,7 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
   );
 }
 
-function FootnoteButton({ open, onClick, children }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`rounded-md px-2 py-1 text-[11px] font-semibold ${
-        open ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
-      }`}
-    >
-      {children}
-    </button>
-  );
-}
-
 export default function RiskReductionSection({ form, agents = {} }) {
-  const [panel, setPanel] = useState(null);
-
   const started = useMemo(
     () => ({
       sglt2i: Boolean(form.onSglt),
@@ -260,10 +244,6 @@ export default function RiskReductionSection({ form, agents = {} }) {
   const vitality = anyStarted ? 0.55 : 0.12;
   const potentialForTiles = anyPotential ? potential : ALL_THREE;
 
-  function togglePanel(id) {
-    setPanel((current) => (current === id ? null : id));
-  }
-
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div
@@ -278,7 +258,7 @@ export default function RiskReductionSection({ form, agents = {} }) {
         </div>
         <p className="mt-0.5 text-[11px] leading-snug text-muted">Relative reduction on top of RASi. Ranges are 95% CIs.</p>
 
-        <div className="mt-2 grid flex-1 grid-cols-2 gap-2">
+        <div className="mt-2 grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
           {riskOutcomes.map((outcome) => (
             <OutcomeTile
               key={outcome.id}
@@ -294,59 +274,11 @@ export default function RiskReductionSection({ form, agents = {} }) {
             ? `${startedCount} of 3 pillars started — bars and organ fill rise as medicines are added.`
             : "Tick a medicine in the form. Faint fill is combination therapy (up to the Together value)."}
         </p>
+        <p className="mt-1 text-[10px] text-muted">
+          Combination estimates multiply current individual HRs, assuming independent effects. The GLP-1 kidney and CV-death estimates are semaglutide-specific; see Sources and evidence.
+        </p>
       </div>
 
-      <div className="border-t border-slate-100 bg-slate-50 px-3 py-2">
-        <div className="flex flex-wrap items-center gap-1">
-          <FootnoteButton open={panel === "sources"} onClick={() => togglePanel("sources")}>
-            Sources
-          </FootnoteButton>
-          <span className="text-slate-300">·</span>
-          <FootnoteButton open={panel === "lifetime"} onClick={() => togglePanel("lifetime")}>
-            Lifetime years at age 50
-          </FootnoteButton>
-        </div>
-
-        {panel === "sources" ? (
-          <div className="mt-2 space-y-2 text-[11px] leading-relaxed text-muted">
-            <p>
-              RASi is baseline (conventional care). These are relative reductions from randomised trials; they are
-              shown even if this patient’s labs differ. SGLT2i values come from the large collaborative meta-analyses
-              cited below. ns-MRA and GLP-1 RA values, and the structure of the two-drug and three-drug combinations,
-              follow Neuen Figures 1–2 — each combination containing SGLT2i is re-anchored to the SGLT2i hazard ratio
-              shown here, so that a combination and its parts stay consistent. Ranges are 95% CIs (dual CIs use
-              Neuen’s independent log-HR standard errors).
-            </p>
-            {riskSources.map((source) => (
-              <p key={source.id}>
-                <a className="font-semibold text-sglt underline-offset-2 hover:underline" href={source.href} target="_blank" rel="noreferrer">
-                  {source.cite}
-                </a>{" "}
-                {source.note}
-              </p>
-            ))}
-          </div>
-        ) : null}
-
-        {panel === "lifetime" ? (
-          <div className="mt-2 space-y-2 text-[11px] leading-relaxed text-muted">
-            <p>
-              Projected event-free years gained for a 50-year-old starting SGLT2i + GLP-1 RA + ns-MRA versus conventional
-              care, from Neuen et al. Circulation 2024.
-            </p>
-            <ul className="space-y-1">
-              {lifetimeGainsAge50.map((row) => (
-                <li key={row.id} className="flex items-baseline justify-between gap-3 text-ink">
-                  <span>{row.label}</span>
-                  <span className="tabular-nums font-semibold">
-                    +{row.years} y <span className="font-normal text-muted">({row.ci})</span>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-      </div>
     </div>
   );
 }

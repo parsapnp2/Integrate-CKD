@@ -26,6 +26,9 @@ export function combinedHazardRatio(outcome, selected) {
   const keys = selectedKeys(selected);
   if (keys.length === 0) return 1;
   if (keys.length === 1) return outcome.hrs[keys[0]];
+  if (outcome.combinationMethod === "multiplicative") {
+    return keys.reduce((hr, key) => hr * outcome.hrs[key], 1);
+  }
   if (keys.length === 3) return outcome.hrs.combo;
   const dual = outcome.combos[keys.join("_")];
   if (dual == null) {
@@ -37,6 +40,17 @@ export function combinedHazardRatio(outcome, selected) {
 export function combinedCi(outcome, selected) {
   const keys = selectedKeys(selected);
   if (keys.length === 0) return null;
+  if (keys.length > 1 && outcome.combinationMethod === "multiplicative") {
+    // Neuen 2024: independent log-HR variances add. Published, rounded CIs
+    // approximate each standard error; multiplying CI endpoints is incorrect.
+    const variance = keys.reduce((sum, key) => {
+      const [lower, upper] = outcome.ci[key];
+      return sum + ((Math.log(upper) - Math.log(lower)) / (2 * 1.96)) ** 2;
+    }, 0);
+    const logHr = Math.log(combinedHazardRatio(outcome, selected));
+    const margin = 1.96 * Math.sqrt(variance);
+    return [Math.exp(logHr - margin), Math.exp(logHr + margin)];
+  }
   const ci = keys.length === 1 ? outcome.ci[keys[0]] : outcome.ci[keys.length === 3 ? "combo" : keys.join("_")];
   if (ci == null) {
     throw new Error(`Missing Figure 1/2 CI for ${outcome.id}: ${keys.join("_")}`);

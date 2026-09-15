@@ -214,28 +214,23 @@ export const riskOutcomes = [
     fillTo: "#e11d48",
     valueClass: "text-ink",
     maxPct: 55,
-    // SGLT2i: McGuire JAMA Cardiol 2021 (HHF alone). The two SMART-C papers report
-    // only the composite HHF-or-CV-death (0.77), so HF alone falls back to McGuire.
-    hrs: { sglt2i: 0.68, nsmra: 0.78, glp1: 0.89, combo: 0.48 },
-    // Neuen Figure 1 duals, re-anchored to the SGLT2i value above (see sglt2iAnchor note)
-    combos: { sglt2i_nsmra: 0.53, sglt2i_glp1: 0.61, nsmra_glp1: 0.69 },
-    // 95% CIs: SGLT2i from its own source; ns-MRA/GLP-1 from Neuen Figures 1–2;
-    // SGLT2i-containing duals and the triple re-anchored by the same factor
+    // SGLT2i: Apperloo/SMART-C Lancet Diabetes Endocrinol 2024, Figure 2B
+    // (hospitalisation for heart failure alone, 12 trials, n=73,238).
+    // Finerenone: INFINITY, Lancet 2026, Figure 2 (HF hospitalization alone).
+    // GLP-1 RA: Lee et al. Diabetes Care 2025 (long-acting agents, T2D).
+    combinationMethod: "multiplicative",
+    hrs: { sglt2i: 0.7, nsmra: 0.78, glp1: 0.86 },
     ci: {
-      sglt2i: [0.61, 0.76],
+      sglt2i: [0.65, 0.75],
       nsmra: [0.66, 0.92],
-      glp1: [0.82, 0.98],
-      sglt2i_nsmra: [0.41, 0.68],
-      sglt2i_glp1: [0.49, 0.74],
-      nsmra_glp1: [0.58, 0.84],
-      combo: [0.36, 0.62],
+      glp1: [0.79, 0.93],
     },
   },
   {
     id: "ckd",
     category: "Kidney",
     label: "Kidney failure",
-    hint: "Dialysis, transplant, or death from kidney failure",
+    hint: "Dialysis or transplant",
     icon: "kidney",
     fillFrom: "#94a3b8",
     fillTo: "#0e7c72",
@@ -243,17 +238,17 @@ export const riskOutcomes = [
     maxPct: 58,
     // SGLT2i: Nuffield/SMART-C Lancet 2022, kidney-failure subcomponent in the four
     // CKD trials — the endpoint KFRE actually predicts (ESKD), not the eGFR-decline composite.
-    hrs: { sglt2i: 0.67, nsmra: 0.77, glp1: 0.86, combo: 0.45 },
-    // Neuen Figure 2 duals, re-anchored to the SGLT2i value above
-    combos: { sglt2i_nsmra: 0.52, sglt2i_glp1: 0.57, nsmra_glp1: 0.66 },
+    // Finerenone: INFINITY Figure 2, post-hoc dialysis/transplant outcome, HR 0.77
+    // (0.64–0.94).
+    // GLP-1 kidney estimate: semaglutide, Mann et al. Lancet Diabetes Endocrinol 2026,
+    // Table 2 / Figure 2 (kidney failure: persistent eGFR <15 or kidney replacement
+    // therapy; 206 vs 241 events). Endpoint is broader than KFRE dialysis/transplant.
+    combinationMethod: "multiplicative",
+    hrs: { sglt2i: 0.67, nsmra: 0.77, glp1: 0.83 },
     ci: {
       sglt2i: [0.59, 0.77],
-      nsmra: [0.67, 0.88],
-      glp1: [0.72, 1.02],
-      sglt2i_nsmra: [0.41, 0.65],
-      sglt2i_glp1: [0.45, 0.74],
-      nsmra_glp1: [0.53, 0.83],
-      combo: [0.33, 0.6],
+      nsmra: [0.64, 0.94],
+      glp1: [0.69, 1.00],
     },
   },
   {
@@ -267,41 +262,33 @@ export const riskOutcomes = [
     valueClass: "text-glp",
     maxPct: 35,
     // SGLT2i: Apperloo/SMART-C Lancet Diabetes Endocrinol 2024 (MACE, 12 trials, n=73,238)
-    hrs: { sglt2i: 0.89, nsmra: 0.9, glp1: 0.86, combo: 0.7 },
-    // Neuen Figure 1 duals, re-anchored to the SGLT2i value above
-    combos: { sglt2i_nsmra: 0.8, sglt2i_glp1: 0.77, nsmra_glp1: 0.77 },
+    combinationMethod: "multiplicative",
+    hrs: { sglt2i: 0.89, nsmra: 0.9, glp1: 0.86 },
     ci: {
       sglt2i: [0.85, 0.94],
       nsmra: [0.81, 1],
-      glp1: [0.8, 0.93],
-      sglt2i_nsmra: [0.69, 0.93],
-      sglt2i_glp1: [0.68, 0.87],
-      nsmra_glp1: [0.68, 0.88],
-      combo: [0.59, 0.81],
+      glp1: [0.81, 0.90],
     },
   },
   {
-    id: "mortality",
-    category: "Survival",
-    label: "All-cause mortality",
-    hint: "Death from any cause",
-    icon: "mortality",
+    id: "cvdeath",
+    category: "CV death",
+    label: "Cardiovascular death",
+    hint: "Death from cardiovascular causes",
+    icon: "cvdeath",
     fillFrom: "#94a3b8",
     fillTo: "#1b7a4e",
     valueClass: "text-proceed",
     maxPct: 33,
-    // SGLT2i: Apperloo/SMART-C Lancet Diabetes Endocrinol 2024 (all-cause mortality, n=73,238)
-    hrs: { sglt2i: 0.89, nsmra: 0.89, glp1: 0.88, combo: 0.7 },
-    // Neuen Figure 2 duals, re-anchored to the SGLT2i value above
-    combos: { sglt2i_nsmra: 0.8, sglt2i_glp1: 0.79, nsmra_glp1: 0.78 },
+    // Cardiovascular death only: SMART-C 2024 Figure 2C, INFINITY 2026 Figure 2,
+    // and SELECT/FLOW/SOUL pooled analysis (Mann 2026), Table 2.
+    // Preserve INFINITY’s published upper CI of 0.999.
+    combinationMethod: "multiplicative",
+    hrs: { sglt2i: 0.86, nsmra: 0.82, glp1: 0.85 },
     ci: {
-      sglt2i: [0.84, 0.93],
-      nsmra: [0.79, 1],
-      glp1: [0.82, 0.94],
-      sglt2i_nsmra: [0.67, 0.94],
-      sglt2i_glp1: [0.68, 0.9],
-      nsmra_glp1: [0.68, 0.9],
-      combo: [0.58, 0.84],
+      sglt2i: [0.80, 0.92],
+      nsmra: [0.67, 0.999],
+      glp1: [0.77, 0.95],
     },
   },
 ];
@@ -310,46 +297,45 @@ export const lifetimeGainsAge50 = [
   { id: "ckd", label: "CKD progression", years: 5.5, ci: "4.0–6.7" },
   { id: "mace", label: "MACE", years: 3.2, ci: "2.1–4.3" },
   { id: "hhf", label: "Hospitalization for HF", years: 3.2, ci: "2.4–4.0" },
-  { id: "mortality", label: "All-cause death", years: 2.4, ci: "1.4–3.4" },
 ];
 
 export const riskSources = [
   {
+    id: "lee2025",
+    cite: "Lee MMY, et al. Cardiovascular and kidney outcomes and mortality with long-acting injectable and oral GLP-1 receptor agonists. Diabetes Care. 2025;48:846–859.",
+    href: "https://doi.org/10.2337/dc25-0241",
+    note: "10 trials, 71,351 people with T2D. HF hospitalization 0.86 (0.79–0.93), MACE 0.86 (0.81–0.90).",
+  },
+  {
+    id: "mann2026",
+    cite: "SELECT, FLOW and SOUL pooled analysis — Mann JFE, et al. Effect of semaglutide on kidney outcomes in the SELECT, FLOW, and SOUL trials: a prespecified pooled analysis. Lancet Diabetes Endocrinol. 2026. Published online August 7.",
+    href: "https://doi.org/10.1016/S2213-8587(26)00134-8",
+    note: "Semaglutide cardiovascular death HR 0.85 (0.77–0.95), Table 2, 647 vs 751 events. Kidney failure HR 0.83 (0.69–1.00), Table 2 and Figure 2; 30,787 participants, 206 vs 241 events. Endpoint: persistent eGFR <15 or initiation of kidney replacement therapy, broader than KFRE dialysis/transplant. The primary kidney composite (0.84) and narrower kidney composite (0.80) are not used.",
+  },
+  {
     id: "smartc-glp1",
-    cite: "Apperloo EM, Neuen BL, et al. Lancet Diabetes Endocrinol. 2024;12:545–557.",
+    cite: "SMART-C — Apperloo EM, Neuen BL, et al. Lancet Diabetes Endocrinol. 2024;12:545–557.",
     href: "https://doi.org/10.1016/S2213-8587(24)00155-4",
-    note: "SGLT2i anchors for MACE (0.89) and all-cause mortality (0.89). SMART-C collaborative meta-analysis, 12 trials, 73,238 participants with diabetes. Also shows SGLT2i effects are unchanged by background GLP-1 RA use on every outcome, which supports treating the classes as independent.",
+    note: "SGLT2i anchors for hospitalisation for heart failure (0.70, Figure 2B), MACE (0.89, Figure 1) and cardiovascular death (0.86, 95% CI 0.80–0.92, Figure 2C). SMART-C collaborative meta-analysis, 12 trials, 73,238 participants with diabetes. Effects were consistent across background GLP-1 RA use, supporting (but not proving) the independence assumption.",
   },
   {
     id: "smartc-diabetes",
-    cite: "Nuffield Department of Population Health Renal Studies Group / SMART-C. Lancet. 2022;400:1788–1801.",
+    cite: "SMART-C — Nuffield Department of Population Health Renal Studies Group. Lancet. 2022;400:1788–1801.",
     href: "https://doi.org/10.1016/S0140-6736(22)02074-8",
     note: "SGLT2i anchor for kidney failure (0.67, kidney-failure subcomponent of the four CKD trials). 13 trials, 90,409 participants. Effects were consistent regardless of diabetes status, primary kidney diagnosis, and baseline eGFR (trial means 37–85), which supports applying one hazard ratio across the calculator’s input range.",
   },
   {
-    id: "mcguire",
-    cite: "McGuire DK, et al. JAMA Cardiol. 2021;6:148–158.",
-    href: "https://doi.org/10.1001/jamacardio.2020.4511",
-    note: "SGLT2i anchor for heart failure (0.68, hospitalization for heart failure alone; 6 trials, 46,969 participants). Used because neither SMART-C paper reports heart failure on its own — both report only the composite of HHF or cardiovascular death (0.77).",
+    id: "infinity",
+    cite: "INFINITY — Neuen BL, et al. Lancet. 2026;407:2375–2386.",
+    href: "https://doi.org/10.1016/S0140-6736(26)01009-3",
+    note: "Finerenone alone added to conventional care: HF hospitalization 0.78 (95% CI 0.66–0.92), dialysis or transplant 0.77 (0.64–0.94; post-hoc analysis), and cardiovascular death 0.82 (0.67–0.999), Figure 2. Cardiovascular death excludes undetermined deaths. The dialysis/transplant endpoint matches KFRE; the broader kidney-failure outcome (0.85) also includes sustained eGFR below 15. Studied albuminuric CKD with and without type 2 diabetes; median follow-up 3.1 years. Current individual estimates feed the multiplicative combination models. Lifetime projections retain their original inputs.",
   },
   {
     id: "neuen",
     cite: "Neuen BL, et al. Circulation. 2024;149:450–462.",
     href: "https://www.ahajournals.org/doi/10.1161/CIRCULATIONAHA.123.067584",
-    note: "ns-MRA and GLP-1 RA hazard ratios, and the structure of the two-drug and three-drug combinations (Figures 1–2). Effects are versus conventional care that already includes RASi. Dual 95% CIs use the paper’s method (independent log-HR standard errors).",
+    note: "Finerenone MACE (0.90, 95% CI 0.81–1.00), multiplicative combination methodology, and original lifetime projections. Current combinations are recalculated from the individual estimates with approximate CIs based on independent log-HR variances; the published lifetime projections are unchanged.",
   },
 ];
 
-// Every combination containing SGLT2i is Neuen's combination value re-anchored to the
-// SGLT2i hazard ratio now used for that outcome:
-//   HR_combo = HR_combo(Neuen) x ( HR_sglt2i(new) / HR_sglt2i(Neuen) )
-// This keeps Neuen's estimate of what ns-MRA and GLP-1 RA add on top of SGLT2i while
-// resting the SGLT2i component on the larger meta-analyses. Without it a card would show
-// an SGLT2i-alone value that does not decompose from the combination shown beside it.
-// The ns-MRA + GLP-1 RA dual contains no SGLT2i and is unchanged from Neuen.
-export const sglt2iAnchor = {
-  hhf: { neuen: 0.64, now: 0.68, source: "mcguire" },
-  ckd: { neuen: 0.63, now: 0.67, source: "smartc-diabetes" },
-  mace: { neuen: 0.83, now: 0.89, source: "smartc-glp1" },
-  mortality: { neuen: 0.85, now: 0.89, source: "smartc-glp1" },
-};
+// All combinations use products of current individual HRs and independent log-HR variances.

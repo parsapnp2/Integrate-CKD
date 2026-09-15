@@ -61,3 +61,13 @@ button {
     animation: none;
   }
 }
+
+@media print {
+  body {
+    background: #fff;
+  }
+
+  @page {
+    margin: 12mm;
+  }
+}

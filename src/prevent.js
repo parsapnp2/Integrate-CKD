@@ -358,6 +358,7 @@ export function preventRisk(input) {
   const bmi = parseNum(input.bmi);
   const sex = input.sex === "male" ? "male" : input.sex === "female" ? "female" : null;
   if (age == null || sbp == null || egfr == null || !sex) return null;
+  if (age < 30 || age > 79 || sbp < 90 || sbp > 200 || egfr < 15 || egfr > 140) return null;
 
   const core = {
     age,
@@ -380,11 +381,11 @@ export function preventRisk(input) {
         out[outcome][years] = null;
         continue;
       }
-      if (outcome === "hf" && bmi == null) {
+      if (outcome === "hf" && (bmi == null || bmi < 18.5 || bmi > 39.9)) {
         out[outcome][years] = null;
         continue;
       }
-      if (outcome !== "hf" && (tc == null || hdl == null)) {
+      if (outcome !== "hf" && (tc == null || hdl == null || tc < 130 || tc > 320 || hdl < 20 || hdl > 100)) {
         out[outcome][years] = null;
         continue;
       }

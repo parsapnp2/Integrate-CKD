@@ -3,20 +3,38 @@ import { riskOutcomes } from "./data.js";
 import { kfreRisk, uacrToMgG } from "./kfre.js";
 import { combinedCi, combinedHazardRatio, parseNum } from "./logic.js";
 import { preventRisk } from "./prevent.js";
+import { scoreCkdRisk } from "./scoreCkd.js";
 import { applyHazardRatio, formatRiskPct } from "./riskApply.js";
 import RiskReductionSection from "./RiskReductionSection.jsx";
+import CalculatorReferences from "./CalculatorReferences.jsx";
 import { tone } from "./theme.js";
+
+/** PREVENT takes cholesterol in mg/dL; Canadian labs report mmol/L. 1 mmol/L = 38.67 mg/dL. */
+const MMOL_TO_MGDL = 38.67;
+/**
+ * SCORE + CKD Patch is fixed to the low-risk European calibration, the closest
+ * published calibration to Canadian CVD mortality. See Sources and evidence.
+ */
+const SCORE_CALIBRATION = "low";
+
+const cholToMgDl = (value, unit) => {
+  const n = parseNum(value);
+  if (n == null) return null;
+  return unit === "mmol" ? n * MMOL_TO_MGDL : n;
+};
+const fmtChol = (mgdl, unit) => (unit === "mmol" ? (mgdl / MMOL_TO_MGDL).toFixed(1) : String(mgdl));
 
 const emptyForm = {
   age: "",
   sex: "",
   egfr: "",
   uacr: "",
-  uacrUnit: "mgg",
+  uacrUnit: "mgmmol",
   northAmerica: true,
   sbp: "",
   tc: "",
   hdl: "",
+  cholUnit: "mmol",
   bmi: "",
   diabetes: true,
   smoking: false,
@@ -25,6 +43,7 @@ const emptyForm = {
   onSglt: false,
   onFinerenone: false,
   onGlp: false,
+  knownCvd: false,
 };
 
 const startedMeds = [
@@ -32,6 +51,20 @@ const startedMeds = [
   { key: "onFinerenone", label: "Finerenone", tone: "mra" },
   { key: "onGlp", label: "GLP-1 RA", tone: "glp" },
 ];
+
+/** Which baseline model consumes each field. Shown as a tag so no field looks model-owned. */
+const MODEL_LABELS = {
+  K: "KFRE · kidney failure",
+  P: "PREVENT · heart failure and MACE",
+  S: "SCORE + CKD Patch · cardiovascular death",
+};
+
+const outcomeById = Object.fromEntries(riskOutcomes.map((row) => [row.id, row]));
+const FALLBACK_OUTCOME = { hrs: {}, ci: {}, combinationMethod: "multiplicative" };
+const outcomeFor = (id) => outcomeById[id] ?? FALLBACK_OUTCOME;
+
+/** Gridlines drawn across each bar well, as a percentage of the full 0-100 scale. */
+const BAR_GRIDLINES = [25, 50, 75];
 
 function PillCheck({ checked, onChange, label, toneKey, className = "" }) {
   const t = tone[toneKey] ?? tone.ink;
@@ -56,6 +89,7 @@ function Choice({ options, value, onChange }) {
           <button
             key={option.id}
             type="button"
+            aria-pressed={active}
             onClick={() => onChange(option.id)}
             className={`flex-1 rounded-md px-2 py-1 text-[11px] font-semibold ${
               active ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
@@ -69,13 +103,84 @@ function Choice({ options, value, onChange }) {
   );
 }
 
-function Field({ label, hint, children }) {
+/** Compact segmented control for unit and calibration switches that sit in a section header. */
+function MiniChoice({ label, options, value, onChange }) {
   return (
-    <label className="rounded-xl border border-slate-200 bg-white px-2.5 py-1">
-      <span className="block whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-muted">{label}</span>
+    <div className="flex items-center gap-1">
+      <span className="text-[9px] font-semibold uppercase tracking-wide text-muted">{label}</span>
+      <div className="flex rounded-md bg-slate-100 p-0.5">
+        {options.map((option) => {
+          const active = value === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={active}
+              onClick={() => onChange(option.id)}
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                active ? "bg-white text-ink shadow-sm" : "text-muted hover:text-ink"
+              }`}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function ModelTags({ tags }) {
+  if (!tags || tags.length === 0) return null;
+  return (
+    <span className="flex shrink-0 gap-0.5">
+      {tags.map((tag) => (
+        <span
+          key={tag}
+          title={MODEL_LABELS[tag] ?? tag}
+          className="rounded bg-slate-100 px-1 text-[8px] font-bold leading-[1.5] text-muted"
+        >
+          {tag}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+function Field({ label, hint, tags, children }) {
+  return (
+    <label className="block rounded-xl border border-slate-200 bg-white px-2.5 py-1">
+      <span className="flex items-center justify-between gap-1">
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-muted">{label}</span>
+        <ModelTags tags={tags} />
+      </span>
       {children}
       {hint ? <span className="block text-[10px] leading-tight text-muted">{hint}</span> : null}
     </label>
+  );
+}
+
+function ChoiceField({ label, tags, options, value, onChange }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-2 py-1">
+      <span className="flex items-center justify-between gap-1">
+        <span className="whitespace-nowrap text-[10px] font-bold uppercase tracking-wide text-muted">{label}</span>
+        <ModelTags tags={tags} />
+      </span>
+      <Choice options={options} value={value} onChange={onChange} />
+    </div>
+  );
+}
+
+function Section({ title, aside, children }) {
+  return (
+    <section className="rounded-xl border border-slate-200 bg-white/70 px-2 py-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+        <p className="text-[10px] font-bold uppercase tracking-wide text-muted">{title}</p>
+        {aside}
+      </div>
+      <div className="mt-1.5">{children}</div>
+    </section>
   );
 }
 
@@ -83,27 +188,37 @@ function inputClass() {
   return "mt-0.5 w-full bg-transparent text-sm text-ink outline-none";
 }
 
-function VerticalPair({ baseline, treated, color, treatedLabel }) {
-  const toH = (risk) => `${Math.min(100, Math.max(0, (risk ?? 0) * 100))}%`;
+function BarWell({ risk, color, faint }) {
+  // Fixed 0-100 scale: a full well is a 100% risk. Gridlines keep low bars readable.
+  const n = Number(risk);
+  const height = risk == null || !Number.isFinite(n) ? "0%" : `${Math.min(100, Math.max(0, n * 100))}%`;
+  return (
+    <div className="relative h-[4.75rem] w-11 overflow-hidden rounded-t-lg bg-slate-100">
+      <div
+        className={`absolute inset-x-0 bottom-0 transition-all duration-700 ${faint ? "opacity-45" : ""}`}
+        style={{ height, background: color }}
+      />
+      {BAR_GRIDLINES.map((line) => (
+        <span
+          key={line}
+          className="pointer-events-none absolute inset-x-0 h-px bg-ink/15"
+          style={{ bottom: `${line}%` }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function VerticalPair({ baseline, treated, color }) {
   // Laid out as three grid rows (wells, labels, values) rather than two stacked
   // columns, so a label that needs more room can never shift its own bar.
   return (
-    <div className="mt-1.5 mx-auto grid w-fit grid-cols-2 justify-items-center gap-x-3">
-      <div className="relative h-[4.75rem] w-11 overflow-hidden rounded-t-lg bg-slate-100">
-        <div
-          className="absolute inset-x-0 bottom-0 opacity-45 transition-all duration-700"
-          style={{ height: toH(baseline), background: color }}
-        />
-      </div>
-      <div className="relative h-[4.75rem] w-11 overflow-hidden rounded-t-lg bg-slate-100">
-        <div
-          className="absolute inset-x-0 bottom-0 transition-all duration-700"
-          style={{ height: toH(treated ?? baseline), background: color }}
-        />
-      </div>
+    <div className="mx-auto grid w-fit grid-cols-2 justify-items-center gap-x-3">
+      <BarWell risk={baseline} color={color} faint />
+      <BarWell risk={treated ?? baseline} color={color} />
 
       <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-muted">Baseline</p>
-      <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-muted">{treatedLabel}</p>
+      <p className="mt-0.5 whitespace-nowrap text-[8px] font-bold uppercase tracking-wide text-muted">With meds</p>
 
       <p className="text-[13px] font-bold tabular-nums text-ink">{baseline == null ? "—" : `${formatRiskPct(baseline)}%`}</p>
       <p className="text-[13px] font-bold tabular-nums text-proceed">
@@ -113,28 +228,74 @@ function VerticalPair({ baseline, treated, color, treatedLabel }) {
   );
 }
 
-function OutcomeCard({ title, category, hint, color, baseline, treated, treatedCi, extra, warning }) {
-  const absDrop = baseline != null && treated != null ? (baseline - treated) * 100 : null;
+function DeltaLine({ baseline, treated, treatedCi, anyStarted, ready }) {
+  if (!ready || !anyStarted) {
+    return (
+      <p className="flex min-h-[2rem] items-center justify-center text-center text-[9px] leading-snug text-muted">
+        {ready ? "Tick a medicine to model treated risk." : ""}
+      </p>
+    );
+  }
+  const drop = baseline != null && treated != null ? (baseline - treated) * 100 : null;
+  if (drop == null) return <p className="min-h-[2rem]" />;
+  const magnitude = Math.abs(drop) >= 0.05 ? Math.abs(drop).toFixed(1) : "<0.1";
+  const rising = drop < 0;
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-2">
+    <p className={`min-h-[2rem] text-center text-[10px] leading-snug ${rising ? "text-continue" : "text-proceed"}`}>
+      {rising ? "+" : "−"}
+      {magnitude} points
+      {treatedCi ? (
+        <span className="block text-[9px] text-muted">
+          treated 95% CI {formatRiskPct(treatedCi[0])}–{formatRiskPct(treatedCi[1])}%
+        </span>
+      ) : null}
+    </p>
+  );
+}
+
+function OutcomeCard({
+  category,
+  title,
+  model,
+  horizon,
+  color,
+  baseline,
+  treated,
+  treatedCi,
+  anyStarted,
+  status,
+  footnote,
+  caution,
+}) {
+  const ready = !status;
+  return (
+    <div className="flex h-full flex-col rounded-xl border border-slate-200 bg-white p-2">
       <p className="text-[9px] font-bold uppercase tracking-wide text-muted">{category}</p>
       <p className="text-[13px] font-semibold leading-tight text-ink">{title}</p>
-      <p className="text-[9px] leading-snug text-muted">{hint}</p>
-      <VerticalPair baseline={baseline} treated={treated} color={color} treatedLabel="With meds" />
-      {absDrop != null && absDrop > 0.05 ? (
-        <p className="mt-1 text-center text-[10px] text-proceed">
-          −{absDrop.toFixed(1)} points
-          {treatedCi ? (
-            <span className="block text-[9px] text-muted">
-              treated 95% CI {formatRiskPct(treatedCi[0])}–{formatRiskPct(treatedCi[1])}%
-            </span>
-          ) : null}
-        </p>
-      ) : baseline != null ? (
-        <p className="mt-1 text-center text-[9px] text-muted">Tick a medicine to lower the treated bar.</p>
-      ) : null}
-      {extra}
-      {warning ? <p className="mt-0.5 text-[9px] leading-snug text-continue">{warning}</p> : null}
+      <p className="text-[9px] leading-snug text-muted">
+        {model} · {horizon}
+      </p>
+
+      <div className="mt-1.5 flex min-h-[7.5rem] flex-1 items-center justify-center">
+        {ready ? (
+          <VerticalPair baseline={baseline} treated={treated} color={color} />
+        ) : (
+          <p
+            className={`px-1 text-center text-[10px] leading-snug ${
+              status.tone === "warn" ? "text-continue" : "text-muted"
+            }`}
+          >
+            {status.message}
+          </p>
+        )}
+      </div>
+
+      <DeltaLine baseline={baseline} treated={treated} treatedCi={treatedCi} anyStarted={anyStarted} ready={ready} />
+
+      <div className="mt-auto border-t border-slate-100 pt-1">
+        <p className="text-[9px] leading-snug text-muted">{footnote}</p>
+        {caution ? <p className="mt-0.5 text-[9px] leading-snug text-continue">{caution}</p> : null}
+      </div>
     </div>
   );
 }
@@ -160,90 +321,157 @@ export default function CalculatorView() {
 
   const age = parseNum(form.age);
   const egfr = parseNum(form.egfr);
+  const sbp = parseNum(form.sbp);
+  const bmi = parseNum(form.bmi);
+  const tc = cholToMgDl(form.tc, form.cholUnit);
+  const hdl = cholToMgDl(form.hdl, form.cholUnit);
   const male = form.sex === "male" ? 1 : form.sex === "female" ? 0 : null;
   const uacrMgG = uacrToMgG(form.uacr, form.uacrUnit);
+  const cholLabel = form.cholUnit === "mmol" ? "mmol/L" : "mg/dL";
+  const cholRange = (lowMgdl, highMgdl) =>
+    `${fmtChol(lowMgdl, form.cholUnit)}–${fmtChol(highMgdl, form.cholUnit)} ${cholLabel}`;
+  const acrRange = form.uacrUnit === "mgmmol" ? "0.6–170 mg/mmol" : "5–1500 mg/g";
 
   const kidney = useMemo(() => {
     if (age == null || male == null || egfr == null || uacrMgG == null) return null;
-    return kfreRisk({
-      age,
-      male,
-      egfr,
-      uacrMgG,
-      northAmerica: form.northAmerica,
-    });
+    return kfreRisk({ age, male, egfr, uacrMgG, northAmerica: form.northAmerica });
   }, [age, male, egfr, uacrMgG, form.northAmerica]);
 
   const heart = useMemo(
     () =>
-      preventRisk({
-        age: form.age,
-        sex: form.sex,
-        sbp: form.sbp,
-        tc: form.tc,
-        hdl: form.hdl,
-        egfr: form.egfr,
-        bmi: form.bmi,
-        diabetes: form.diabetes,
-        smoking: form.smoking,
-        bpmed: form.bpmed,
-        statin: form.statin,
-      }),
+      form.knownCvd
+        ? null
+        : preventRisk({
+            age: form.age,
+            sex: form.sex,
+            sbp: form.sbp,
+            tc: cholToMgDl(form.tc, form.cholUnit),
+            hdl: cholToMgDl(form.hdl, form.cholUnit),
+            egfr: form.egfr,
+            bmi: form.bmi,
+            diabetes: form.diabetes,
+            smoking: form.smoking,
+            bpmed: form.bpmed,
+            statin: form.statin,
+          }),
     [form],
   );
 
-  const ckdOutcome = riskOutcomes.find((row) => row.id === "ckd");
-  const hfOutcome = riskOutcomes.find((row) => row.id === "hhf");
-  const maceOutcome = riskOutcomes.find((row) => row.id === "mace");
+  const cvDeath = scoreCkdRisk({
+    age: form.age,
+    sex: form.sex,
+    sbp: form.sbp,
+    tc: tc == null ? null : tc * 0.02586,
+    egfr: form.egfr,
+    uacrMgG,
+    smoking: form.smoking,
+    calibration: SCORE_CALIBRATION,
+    knownCvd: form.knownCvd,
+  });
 
-  const kidneyHr = combinedHazardRatio(ckdOutcome, started);
-  const hfHr = combinedHazardRatio(hfOutcome, started);
-  const maceHr = combinedHazardRatio(maceOutcome, started);
-  const kidneyCi = combinedCi(ckdOutcome, started);
-  const hfCi = combinedCi(hfOutcome, started);
-  const maceCi = combinedCi(maceOutcome, started);
+  const ckdOutcome = outcomeFor("ckd");
+  const hfOutcome = outcomeFor("hhf");
+  const maceOutcome = outcomeFor("mace");
+  const cvDeathOutcome = outcomeFor("cvdeath");
 
   const kidneyBase = kidney ? (kidneyYears === 2 ? kidney.year2 : kidney.year5) : null;
   const hfBase = heart?.hf?.[heartYears] ?? null;
   const ascvdBase = heart?.ascvd?.[heartYears] ?? null;
-  const cvdBase = heart?.cvd?.[heartYears] ?? null;
+  const cvDeathBase = cvDeath?.patched ?? null;
 
-  const kidneyTreated = anyStarted ? applyHazardRatio(kidneyBase, kidneyHr) : kidneyBase;
-  const hfTreated = anyStarted ? applyHazardRatio(hfBase, hfHr) : hfBase;
-  const ascvdTreated = anyStarted ? applyHazardRatio(ascvdBase, maceHr) : ascvdBase;
+  const kidneyTreated = anyStarted ? applyHazardRatio(kidneyBase, combinedHazardRatio(ckdOutcome, started)) : kidneyBase;
+  const hfTreated = anyStarted ? applyHazardRatio(hfBase, combinedHazardRatio(hfOutcome, started)) : hfBase;
+  const ascvdTreated = anyStarted ? applyHazardRatio(ascvdBase, combinedHazardRatio(maceOutcome, started)) : ascvdBase;
+  const cvDeathTreated = anyStarted
+    ? applyHazardRatio(cvDeathBase, combinedHazardRatio(cvDeathOutcome, started))
+    : cvDeathBase;
 
   function treatedRange(baseline, ci) {
     if (baseline == null || !ci) return null;
     const a = applyHazardRatio(baseline, ci[0]);
     const b = applyHazardRatio(baseline, ci[1]);
+    if (a == null || b == null) return null;
     return [Math.min(a, b), Math.max(a, b)];
   }
 
-  const kidneyTreatedCi = anyStarted ? treatedRange(kidneyBase, kidneyCi) : null;
-  const hfTreatedCi = anyStarted ? treatedRange(hfBase, hfCi) : null;
-  const ascvdTreatedCi = anyStarted ? treatedRange(ascvdBase, maceCi) : null;
+  const kidneyTreatedCi = anyStarted ? treatedRange(kidneyBase, combinedCi(ckdOutcome, started)) : null;
+  const hfTreatedCi = anyStarted ? treatedRange(hfBase, combinedCi(hfOutcome, started)) : null;
+  const ascvdTreatedCi = anyStarted ? treatedRange(ascvdBase, combinedCi(maceOutcome, started)) : null;
+  const cvDeathTreatedCi = anyStarted ? treatedRange(cvDeathBase, combinedCi(cvDeathOutcome, started)) : null;
 
-  const notes = [];
-  if (egfr != null && egfr >= 60) notes.push("KFRE is intended for CKD G3–G5 (eGFR < 60).");
-  if (age != null && (age < 30 || age > 79)) notes.push("PREVENT is defined for ages 30–79.");
-  if (heartYears === 30 && age != null && age > 59) notes.push("30-year PREVENT is only defined for ages 30–59.");
-  const sbp = parseNum(form.sbp);
-  const tc = parseNum(form.tc);
-  const hdl = parseNum(form.hdl);
-  const bmi = parseNum(form.bmi);
-  if (sbp != null && (sbp < 90 || sbp > 200)) notes.push("PREVENT SBP range is 90–200 mm Hg.");
-  if (tc != null && (tc < 130 || tc > 320)) notes.push("PREVENT total cholesterol range is 130–320 mg/dL.");
-  if (hdl != null && (hdl < 20 || hdl > 100)) notes.push("PREVENT HDL range is 20–100 mg/dL.");
-  if (bmi != null && (bmi < 18.5 || bmi > 39.9)) notes.push("PREVENT BMI range is 18.5–39.9 kg/m².");
+  // A card stays quiet until the user has entered something. Diabetes is excluded
+  // because it is pre-ticked, so it is not evidence that the form has been used.
+  const anyInput =
+    [form.age, form.sex, form.egfr, form.sbp, form.uacr, form.tc, form.hdl, form.bmi].some(
+      (value) => String(value ?? "").trim() !== "",
+    ) || form.smoking || form.bpmed || form.statin || form.knownCvd;
+
+  function statusFor(baseline, checks) {
+    if (baseline != null) return null;
+    if (!anyInput) return { tone: "muted", message: "Enter patient details to calculate." };
+    const issue = checks.find((check) => !check.ok);
+    return { tone: "warn", message: issue ? issue.message : "Not available for these inputs." };
+  }
+
+  const kidneyChecks = [
+    { ok: age != null, message: "Enter age." },
+    { ok: male != null, message: "Select sex." },
+    { ok: egfr != null, message: "Enter eGFR." },
+    { ok: String(form.uacr ?? "").trim() !== "", message: "Enter UACR." },
+    { ok: uacrMgG != null && uacrMgG > 0, message: "UACR must be greater than 0." },
+  ];
+
+  const preventChecks = [
+    { ok: !form.knownCvd, message: "Not shown with known CVD. PREVENT is a primary-prevention model." },
+    { ok: age != null, message: "Enter age." },
+    { ok: form.sex !== "", message: "Select sex." },
+    { ok: sbp != null, message: "Enter SBP." },
+    { ok: egfr != null, message: "Enter eGFR." },
+    { ok: age == null || (age >= 30 && age <= 79), message: "PREVENT covers ages 30–79." },
+    { ok: heartYears !== 30 || age == null || age <= 59, message: "30-year PREVENT covers ages 30–59." },
+    { ok: sbp == null || (sbp >= 90 && sbp <= 200), message: "SBP must be 90–200 mm Hg." },
+    { ok: egfr == null || (egfr >= 15 && egfr <= 140), message: "eGFR must be 15–140 mL/min/1.73 m²." },
+  ];
+
+  const hfChecks = [
+    ...preventChecks,
+    { ok: bmi != null, message: "Enter BMI." },
+    { ok: bmi == null || (bmi >= 18.5 && bmi <= 39.9), message: "BMI must be 18.5–39.9 kg/m²." },
+  ];
+
+  const maceChecks = [
+    ...preventChecks,
+    { ok: tc != null, message: "Enter total cholesterol." },
+    { ok: hdl != null, message: "Enter HDL." },
+    { ok: tc == null || (tc >= 130 && tc <= 320), message: `Total cholesterol must be ${cholRange(130, 320)}.` },
+    { ok: hdl == null || (hdl >= 20 && hdl <= 100), message: `HDL must be ${cholRange(20, 100)}.` },
+  ];
+
+  const cvDeathChecks = [
+    { ok: !form.knownCvd, message: "Not shown with known CVD. SCORE is a primary-prevention model." },
+    { ok: age != null, message: "Enter age." },
+    { ok: form.sex !== "", message: "Select sex." },
+    { ok: sbp != null, message: "Enter SBP." },
+    { ok: egfr != null, message: "Enter eGFR." },
+    { ok: uacrMgG != null && uacrMgG > 0, message: "Enter UACR." },
+    { ok: tc != null, message: "Enter total cholesterol." },
+    { ok: age == null || (age >= 40 && age <= 65), message: "This implementation covers ages 40–65." },
+    { ok: sbp == null || (sbp >= 90 && sbp <= 180), message: "SBP must be 90–180 mm Hg." },
+    { ok: egfr == null || (egfr >= 15 && egfr <= 120), message: "eGFR must be 15–120 mL/min/1.73 m²." },
+    { ok: uacrMgG == null || (uacrMgG >= 5 && uacrMgG <= 1500), message: `UACR must be ${acrRange}.` },
+    { ok: tc == null || (tc >= 150 && tc <= 280), message: `Total cholesterol must be ${cholRange(150, 280)}.` },
+  ];
+
+  const kidneyStatus = statusFor(kidneyBase, kidneyChecks);
+  const hfStatus = statusFor(hfBase, hfChecks);
+  const maceStatus = statusFor(ascvdBase, maceChecks);
+  const cvDeathStatus = statusFor(cvDeathBase, cvDeathChecks);
 
   return (
     <div className="space-y-2.5">
       <div className="grid items-stretch gap-2.5 lg:grid-cols-[minmax(0,1.06fr)_minmax(0,0.94fr)]">
         <div className="overflow-hidden rounded-2xl border border-sglt/20 bg-white shadow-sm">
-          <div
-            className="h-full px-3 py-2"
-            style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 100%)" }}
-          >
+          <div className="h-full px-3 py-2" style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 100%)" }}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Risk calculator</p>
@@ -258,17 +486,40 @@ export default function CalculatorView() {
               </button>
             </div>
             <p className="mt-0.5 text-[11px] leading-snug text-muted">
-              KFRE and PREVENT first. Tick medicines to see relative and absolute reduction. Nothing is stored.
+              KFRE, PREVENT and SCORE + CKD Patch calculate baseline risks. Tick medicines to compare modelled effects.
+              Nothing is stored.
             </p>
 
-            <form className="mt-2 space-y-2" onSubmit={(event) => event.preventDefault()}>
-              <div className="grid grid-cols-2 gap-1.5">
-                <Field label="Age" hint="years">
-                  <input className={inputClass()} type="number" min="18" max="100" value={form.age} onChange={(e) => set("age", e.target.value)} />
-                </Field>
-                <div className="rounded-xl border border-slate-200 bg-white px-2 py-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Sex</p>
-                  <Choice
+            <form className="mt-2 space-y-1.5" onSubmit={(event) => event.preventDefault()}>
+              <Section
+                title="Patient"
+                aside={
+                  <MiniChoice
+                    label="KFRE region"
+                    value={form.northAmerica ? "na" : "other"}
+                    onChange={(id) => set("northAmerica", id === "na")}
+                    options={[
+                      { id: "na", label: "North America" },
+                      { id: "other", label: "Other" },
+                    ]}
+                  />
+                }
+              >
+                <div className="grid grid-cols-2 gap-1.5">
+                  <Field label="Age" hint="years" tags={["K", "P", "S"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="numeric"
+                      min="18"
+                      max="100"
+                      value={form.age}
+                      onChange={(e) => set("age", e.target.value)}
+                    />
+                  </Field>
+                  <ChoiceField
+                    label="Sex"
+                    tags={["K", "P", "S"]}
                     value={form.sex}
                     onChange={(id) => set("sex", id)}
                     options={[
@@ -277,81 +528,167 @@ export default function CalculatorView() {
                     ]}
                   />
                 </div>
-                <Field label="eGFR" hint="mL/min/1.73 m²">
-                  <input className={inputClass()} type="number" min="5" max="140" step="1" value={form.egfr} onChange={(e) => set("egfr", e.target.value)} />
-                </Field>
-                <Field label="SBP" hint="mm Hg">
-                  <input className={inputClass()} type="number" min="80" max="220" step="1" value={form.sbp} onChange={(e) => set("sbp", e.target.value)} />
-                </Field>
-              </div>
+              </Section>
 
-              <div className="grid gap-1.5 xl:grid-cols-2">
-              <div className="rounded-xl border border-sglt/25 bg-sglt-soft/40 p-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Kidney failure · KFRE</p>
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                  <Field label="UACR" hint={form.uacrUnit === "mgg" ? "mg/g" : "mg/mmol"}>
-                    <input className={inputClass()} type="number" min="0.1" step="1" value={form.uacr} onChange={(e) => set("uacr", e.target.value)} />
-                  </Field>
-                  <div className="rounded-xl border border-slate-200 bg-white px-2 py-1">
-                    <p className="text-[10px] font-bold uppercase tracking-wide text-muted">ACR unit</p>
-                    <Choice
+              <Section
+                title="Labs and vitals"
+                aside={
+                  <div className="flex flex-wrap items-center gap-2">
+                    <MiniChoice
+                      label="ACR"
                       value={form.uacrUnit}
                       onChange={(id) => set("uacrUnit", id)}
                       options={[
-                        { id: "mgg", label: "mg/g" },
                         { id: "mgmmol", label: "mg/mmol" },
+                        { id: "mgg", label: "mg/g" },
+                      ]}
+                    />
+                    <MiniChoice
+                      label="Chol"
+                      value={form.cholUnit}
+                      onChange={(id) => set("cholUnit", id)}
+                      options={[
+                        { id: "mmol", label: "mmol/L" },
+                        { id: "mgdl", label: "mg/dL" },
                       ]}
                     />
                   </div>
+                }
+              >
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                  <Field label="eGFR" hint="mL/min/1.73 m²" tags={["K", "P", "S"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="decimal"
+                      min="5"
+                      max="140"
+                      step="1"
+                      value={form.egfr}
+                      onChange={(e) => set("egfr", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="SBP" hint="mm Hg" tags={["P", "S"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="numeric"
+                      min="80"
+                      max="220"
+                      step="1"
+                      value={form.sbp}
+                      onChange={(e) => set("sbp", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="UACR" hint={form.uacrUnit === "mgg" ? "mg/g" : "mg/mmol"} tags={["K", "S"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="decimal"
+                      min="0.1"
+                      step="0.1"
+                      value={form.uacr}
+                      onChange={(e) => set("uacr", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="Total chol." hint={cholLabel} tags={["P", "S"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="decimal"
+                      min={form.cholUnit === "mmol" ? "2" : "80"}
+                      max={form.cholUnit === "mmol" ? "10" : "400"}
+                      step={form.cholUnit === "mmol" ? "0.1" : "1"}
+                      value={form.tc}
+                      onChange={(e) => set("tc", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="HDL" hint={cholLabel} tags={["P"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="decimal"
+                      min={form.cholUnit === "mmol" ? "0.3" : "10"}
+                      max={form.cholUnit === "mmol" ? "3" : "120"}
+                      step={form.cholUnit === "mmol" ? "0.01" : "1"}
+                      value={form.hdl}
+                      onChange={(e) => set("hdl", e.target.value)}
+                    />
+                  </Field>
+                  <Field label="BMI" hint="kg/m²" tags={["P"]}>
+                    <input
+                      className={inputClass()}
+                      type="number"
+                      inputMode="decimal"
+                      min="15"
+                      max="50"
+                      step="0.1"
+                      value={form.bmi}
+                      onChange={(e) => set("bmi", e.target.value)}
+                    />
+                  </Field>
                 </div>
-                <div className="mt-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-muted">Region</p>
-                  <Choice
-                    value={form.northAmerica ? "na" : "other"}
-                    onChange={(id) => set("northAmerica", id === "na")}
-                    options={[
-                      { id: "na", label: "North America" },
-                      { id: "other", label: "Other" },
-                    ]}
-                  />
-                </div>
-              </div>
+              </Section>
 
-              <div className="rounded-xl border border-glp/25 bg-glp-soft/50 p-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-glp">Heart · PREVENT base</p>
-                <div className="mt-1.5 grid grid-cols-3 gap-1.5">
-                  <Field label="Total chol." hint="mg/dL">
-                    <input className={inputClass()} type="number" min="80" max="400" step="1" value={form.tc} onChange={(e) => set("tc", e.target.value)} />
-                  </Field>
-                  <Field label="HDL" hint="mg/dL">
-                    <input className={inputClass()} type="number" min="10" max="120" step="1" value={form.hdl} onChange={(e) => set("hdl", e.target.value)} />
-                  </Field>
-                  <Field label="BMI" hint="kg/m²">
-                    <input className={inputClass()} type="number" min="15" max="50" step="0.1" value={form.bmi} onChange={(e) => set("bmi", e.target.value)} />
-                  </Field>
-                </div>
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
-                  <PillCheck className="w-full" checked={form.diabetes} onChange={(e) => set("diabetes", e.target.checked)} label="Diabetes" toneKey="sglt" />
-                  <PillCheck className="w-full" checked={form.smoking} onChange={(e) => set("smoking", e.target.checked)} label="Smoking" toneKey="mra" />
-                  <PillCheck className="w-full" checked={form.bpmed} onChange={(e) => set("bpmed", e.target.checked)} label="BP therapy" toneKey="glp" />
-                  <PillCheck className="w-full" checked={form.statin} onChange={(e) => set("statin", e.target.checked)} label="Statin" toneKey="rasi" />
-                </div>
-              </div>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted">Already started</span>
-                {startedMeds.map((med) => (
+              <Section title="Conditions and therapy">
+                <div className="grid grid-cols-2 gap-1.5">
                   <PillCheck
-                    key={med.key}
-                    checked={form[med.key]}
-                    onChange={(e) => set(med.key, e.target.checked)}
-                    label={med.label}
-                    toneKey={med.tone}
+                    className="w-full"
+                    checked={form.diabetes}
+                    onChange={(e) => set("diabetes", e.target.checked)}
+                    label="Diabetes"
+                    toneKey="sglt"
                   />
-                ))}
-                <span className="text-[10px] text-muted">RASi is in the baseline.</span>
-              </div>
+                  <PillCheck
+                    className="w-full"
+                    checked={form.smoking}
+                    onChange={(e) => set("smoking", e.target.checked)}
+                    label="Smoking"
+                    toneKey="mra"
+                  />
+                  <PillCheck
+                    className="w-full"
+                    checked={form.bpmed}
+                    onChange={(e) => set("bpmed", e.target.checked)}
+                    label="BP therapy"
+                    toneKey="glp"
+                  />
+                  <PillCheck
+                    className="w-full"
+                    checked={form.statin}
+                    onChange={(e) => set("statin", e.target.checked)}
+                    label="Statin"
+                    toneKey="rasi"
+                  />
+                  <PillCheck
+                    className="col-span-2 w-full"
+                    checked={form.knownCvd}
+                    onChange={(e) => set("knownCvd", e.target.checked)}
+                    label="Known CVD (ASCVD or heart failure)"
+                    toneKey="glp"
+                  />
+                </div>
+              </Section>
+
+              <Section title="Already started">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {startedMeds.map((med) => (
+                    <PillCheck
+                      key={med.key}
+                      checked={form[med.key]}
+                      onChange={(e) => set(med.key, e.target.checked)}
+                      label={med.label}
+                      toneKey={med.tone}
+                    />
+                  ))}
+                  <span className="text-[10px] text-muted">Effects added to usual care.</span>
+                </div>
+              </Section>
+
+              <p className="px-1 text-[9px] leading-snug text-muted">
+                Field tags: <span className="font-bold">K</span> KFRE · <span className="font-bold">P</span> PREVENT ·{" "}
+                <span className="font-bold">S</span> SCORE + CKD Patch.
+              </p>
             </form>
           </div>
         </div>
@@ -360,10 +697,7 @@ export default function CalculatorView() {
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div
-          className="px-3 py-2"
-          style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 55%)" }}
-        >
+        <div className="px-3 py-2" style={{ background: "linear-gradient(180deg, #e6f6ee 0%, #ffffff 55%)" }}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wide text-sglt">Absolute risk</p>
@@ -382,7 +716,7 @@ export default function CalculatorView() {
                 />
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wide text-muted">Heart horizon</p>
+                <p className="text-[9px] font-bold uppercase tracking-wide text-muted">HF / MACE horizon</p>
                 <Choice
                   value={String(heartYears)}
                   onChange={(id) => setHeartYears(Number(id))}
@@ -394,97 +728,77 @@ export default function CalculatorView() {
               </div>
             </div>
           </div>
-          <p className="mt-0.5 text-[10px] text-muted">
-            Faint bar is KFRE or PREVENT. Solid bar applies the trial hazard ratios as 1 − (1 − baseline)
-            <sup>HR</sup>.
+          <p className="mt-0.5 text-[10px] leading-snug text-muted">
+            Faint bar is the baseline model. Solid bar applies the trial hazard ratios as 1 − (1 − baseline)
+            <sup>HR</sup>. Treated risks are modelled approximations. Every bar is scaled 0 to 100%, with gridlines at
+            25, 50 and 75.
           </p>
 
-          <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-2 grid items-stretch gap-2 sm:grid-cols-2 xl:grid-cols-4">
             <OutcomeCard
               category="Kidney"
               title="Kidney failure"
-              hint={`KFRE ${kidneyYears}-year dialysis or transplant`}
+              model="KFRE"
+              horizon={`${kidneyYears}-year`}
               color="#0e7c72"
               baseline={kidneyBase}
               treated={kidneyTreated}
               treatedCi={kidneyTreatedCi}
-              warning={!kidney ? "Needs age, sex, eGFR, and UACR." : null}
+              anyStarted={anyStarted}
+              status={kidneyStatus}
+              footnote="Endpoint: dialysis or transplant."
+              caution={egfr != null && egfr >= 60 ? "KFRE is intended for CKD G3–G5 (eGFR < 60)." : null}
             />
             <OutcomeCard
               category="Heart"
               title="Heart failure"
-              hint={`PREVENT ${heartYears}-year incident HF`}
+              model="PREVENT"
+              horizon={`${heartYears}-year`}
               color="#e11d48"
               baseline={hfBase}
               treated={hfTreated}
               treatedCi={hfTreatedCi}
-              warning={!hfBase ? "Needs age, sex, SBP, eGFR, and BMI." : null}
+              anyStarted={anyStarted}
+              status={hfStatus}
+              footnote="Endpoint: incident heart failure."
             />
             <OutcomeCard
               category="MACE"
               title="MACE"
-              hint={`PREVENT ${heartYears}-year ASCVD as a stand-in`}
+              model="PREVENT"
+              horizon={`${heartYears}-year`}
               color="#1a365d"
               baseline={ascvdBase}
               treated={ascvdTreated}
               treatedCi={ascvdTreatedCi}
-              extra={
-                <p className="mt-0.5 text-center text-[9px] text-muted">
-                  Baseline is PREVENT ASCVD (MI, fatal CHD, stroke), which omits heart-failure and sudden
-                  cardiac death — so it understates true MACE.
-                </p>
-              }
-              warning={!ascvdBase ? "Needs age, sex, SBP, eGFR, total cholesterol, and HDL." : null}
+              anyStarted={anyStarted}
+              status={maceStatus}
+              footnote="Endpoint: PREVENT ASCVD, used as a MACE proxy."
             />
-            <div className="rounded-xl border border-slate-200 bg-white p-2">
-              <p className="text-[9px] font-bold uppercase tracking-wide text-muted">Total CVD</p>
-              <p className="text-[13px] font-semibold leading-tight text-ink">PREVENT total CVD</p>
-              <p className="text-[9px] leading-snug text-muted">
-                ASCVD plus HF. Shown as baseline only — no trial reports this composite.
-              </p>
-              <VerticalPair baseline={cvdBase} treated={cvdBase} color="#3d5a80" treatedLabel="Baseline" />
-              <p className="mt-1 text-center text-[10px] tabular-nums text-ink">
-                {cvdBase != null ? `${formatRiskPct(cvdBase)}% ${heartYears}-year` : "Enter PREVENT inputs."}
-              </p>
-            </div>
+            <OutcomeCard
+              category="CV death"
+              title="Cardiovascular death"
+              model="SCORE + CKD Patch"
+              horizon="10-year, fixed"
+              color="#1b7a4e"
+              baseline={cvDeathBase}
+              treated={cvDeathTreated}
+              treatedCi={cvDeathTreatedCi}
+              anyStarted={anyStarted}
+              status={cvDeathStatus}
+              footnote="Endpoint: fatal CVD. Fixed 10-year horizon."
+            />
           </div>
         </div>
 
-        <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] leading-relaxed text-muted">
-          {notes.length > 0 ? (
-            <ul className="mb-2 space-y-1 text-continue">
-              {notes.map((note) => (
-                <li key={note}>· {note}</li>
-              ))}
-            </ul>
-          ) : null}
-          <p>
-            KFRE 4-variable: Tangri et al. JAMA 2011;305:1553–1559, multinational calibration JAMA 2016;315:164–174.
-            North America S₀ 0.9750 / 0.9240; other regions 0.9832 / 0.9365. ACR in mg/g (mg/mmol × 8.84).{" "}
-            <a className="font-semibold text-sglt underline-offset-2 hover:underline" href="https://kidneyfailurerisk.com/" target="_blank" rel="noreferrer">
-              kidneyfailurerisk.com
-            </a>
-          </p>
-          <p className="mt-1">
-            PREVENT base model: Khan et al. Circulation 2024;149:430–449. Not for people with known CVD.{" "}
-            <a
-              className="font-semibold text-sglt underline-offset-2 hover:underline"
-              href="https://professional.heart.org/en/guidelines-and-statements/prevent-calculator"
-              target="_blank"
-              rel="noreferrer"
-            >
-              AHA PREVENT calculator
-            </a>
-          </p>
-          <p className="mt-1">
-            SGLT2i hazard ratios: kidney failure 0.67 (Lancet 2022;400:1788–1801), MACE 0.89 and all-cause mortality
-            0.89 (Lancet Diabetes Endocrinol 2024;12:545–557), heart failure 0.68 (JAMA Cardiol 2021;6:148–158).
-            ns-MRA and GLP-1 RA values, and the combination structure, from Neuen et al. Circulation 2024, Figures 1–2.
-            All are versus conventional care that already includes RASi, and are applied as an approximation on the
-            absolute-risk scale. Visual aid only.
-          </p>
-        </div>
+        {form.knownCvd ? (
+          <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] leading-relaxed text-continue">
+            Known CVD is ticked. PREVENT and SCORE + CKD Patch are primary-prevention models, so the heart failure, MACE
+            and cardiovascular death baselines are not shown.
+          </div>
+        ) : null}
       </div>
+      <CalculatorReferences />
     </div>
   );
 }
