@@ -7,6 +7,10 @@ import { scoreCkdRisk } from "./scoreCkd.js";
 import { applyHazardRatio } from "./riskApply.js";
 import Icon from "./PatientIcons.jsx";
 import { WARM_THEME as THEME } from "./uiTheme.js";
+import { updateFormField } from "./formUnits.js";
+import RangeInput from "./RangeInput.jsx";
+import { calculatorRange, rangeError } from "./inputRanges.js";
+import { riskInputIssue } from "./riskInputIssue.js";
 import {
   acrStageFor,
   acrStages,
@@ -606,16 +610,6 @@ function Field({ label, hint, children }) {
   );
 }
 
-function NumberInput(props) {
-  return (
-    <input
-      {...props}
-      className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none"
-      style={{ color: "var(--p-ink)" }}
-    />
-  );
-}
-
 function Segmented({ label, options, value, onChange }) {
   return (
     <div className="rounded-xl border px-3 py-2" style={{ borderColor: "var(--p-line)", background: "var(--p-card)" }}>
@@ -687,17 +681,16 @@ export default function PatientView() {
   const [draft, setDraft] = useState("");
   const nextId = useRef(0);
 
-  const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const set = (key, value) => setForm((current) => updateFormField(current, key, value));
   const toggle = (id) =>
     setOpen((current) => (current.includes(id) ? current.filter((x) => x !== id) : [...current, id]));
   const isOpen = (id) => open.includes(id);
 
   const age = parseNum(form.age);
-  const egfr = parseNum(form.egfr);
+  const egfr = rangeError(form.egfr, calculatorRange("egfr")) ? null : parseNum(form.egfr);
   const male = form.sex === "male" ? 1 : form.sex === "female" ? 0 : null;
   const uacrMgG = uacrToMgG(form.uacr, form.uacrUnit);
   const tc = cholToMgDl(form.tc, form.cholUnit);
-  const cholLabel = form.cholUnit === "mmol" ? "mmol/L" : "mg/dL";
 
   const started = useMemo(
     () => ({ sglt2i: Boolean(form.onSglt), nsmra: Boolean(form.onFinerenone), glp1: Boolean(form.onGlp) }),
@@ -752,12 +745,10 @@ export default function PatientView() {
   const treatedOf = (id) =>
     anyMedicine ? applyHazardRatio(baselines[id], combinedHazardRatio(outcomeFor(id), started)) : baselines[id];
 
-  const hasCore = kidney != null;
+  const hasCore = ["age", "egfr", "uacr"].every((key) => !rangeError(form[key], calculatorRange(key, form), true)) && ["male", "female"].includes(form.sex);
   const gStage = egfrStageFor(egfr);
   const aStage = acrStageFor(uacrMgG);
-  const heartBlocked = form.knownCvd
-    ? "You have told us about a heart problem already, so this estimate does not apply. Models like this are built for people who have not had one yet."
-    : "Open Your numbers and add blood pressure, cholesterol and BMI to see this one.";
+
 
   function printAll() {
     setOpen(PANELS);
@@ -802,7 +793,7 @@ export default function PatientView() {
           <KidneyGauge egfr={egfr} stage={gStage} />
 
           <div className="min-w-[13rem] flex-1">
-            {hasCore ? (
+            {kidney != null ? (
               <>
                 <div className="flex flex-wrap gap-2">
                   <span
@@ -837,8 +828,7 @@ export default function PatientView() {
             ) : (
               <>
                 <p className="text-[1.05em] leading-relaxed">
-                  Everything on this page is closed until you open it. Start by adding four numbers from your test
-                  results, then open any section you are curious about.
+                  {hasCore ? riskInputIssue("ckd", form) : "Start by adding your numbers from your test results. Any missing or out-of-range values are explained beside the fields."}
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 print:hidden">
                   <Pill
@@ -994,12 +984,11 @@ export default function PatientView() {
         >
           <form className="space-y-3" onSubmit={(event) => event.preventDefault()}>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <Field label="Age" hint="years">
-                <NumberInput
+              <Field label="Age">
+                <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                   type="number"
                   inputMode="numeric"
-                  min="18"
-                  max="100"
+                  range={calculatorRange("age", form)}
                   value={form.age}
                   onChange={(e) => set("age", e.target.value)}
                 />
@@ -1014,21 +1003,19 @@ export default function PatientView() {
                 ]}
               />
               <Field label="eGFR" hint="Higher is better">
-                <NumberInput
+                <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                   type="number"
                   inputMode="decimal"
-                  min="5"
-                  max="140"
+                  range={calculatorRange("egfr", form)}
                   value={form.egfr}
                   onChange={(e) => set("egfr", e.target.value)}
                 />
               </Field>
               <Field label="Urine ACR" hint="Lower is better">
-                <NumberInput
+                <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                   type="number"
                   inputMode="decimal"
-                  min="0.1"
-                  step="0.1"
+                  range={calculatorRange("uacr", form)}
                   value={form.uacr}
                   onChange={(e) => set("uacr", e.target.value)}
                 />
@@ -1049,37 +1036,38 @@ export default function PatientView() {
                 For the heart estimates, add these too
               </p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                <Field label="Blood pressure" hint="top number, mm Hg">
-                  <NumberInput
+                <Field label="Blood pressure" hint="top number">
+                  <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                     type="number"
                     inputMode="numeric"
+                  range={calculatorRange("sbp", form)}
                     value={form.sbp}
                     onChange={(e) => set("sbp", e.target.value)}
                   />
                 </Field>
-                <Field label="Total cholesterol" hint={cholLabel}>
-                  <NumberInput
+                <Field label="Total cholesterol">
+                  <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                     type="number"
                     inputMode="decimal"
-                    step={form.cholUnit === "mmol" ? "0.1" : "1"}
+                  range={calculatorRange("tc", form)}
                     value={form.tc}
                     onChange={(e) => set("tc", e.target.value)}
                   />
                 </Field>
-                <Field label="HDL" hint={`good cholesterol, ${cholLabel}`}>
-                  <NumberInput
+                <Field label="HDL" hint="good cholesterol">
+                  <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                     type="number"
                     inputMode="decimal"
-                    step={form.cholUnit === "mmol" ? "0.01" : "1"}
+                  range={calculatorRange("hdl", form)}
                     value={form.hdl}
                     onChange={(e) => set("hdl", e.target.value)}
                   />
                 </Field>
-                <Field label="BMI" hint="kg/m²">
-                  <NumberInput
+                <Field label="BMI">
+                  <RangeInput className="mt-0.5 w-full bg-transparent text-[1.15em] outline-none" style={{ color: "var(--p-ink)" }}
                     type="number"
                     inputMode="decimal"
-                    step="0.1"
+                  range={calculatorRange("bmi", form)}
                     value={form.bmi}
                     onChange={(e) => set("bmi", e.target.value)}
                   />
@@ -1220,7 +1208,7 @@ export default function PatientView() {
                     className="mt-3 rounded-xl p-3 text-center text-[0.9em]"
                     style={{ background: "var(--p-cream)", color: "var(--p-muted)" }}
                   >
-                    {heartBlocked}
+                    {riskInputIssue(riskOutcome, form) ?? "This estimate is not available for these inputs."}
                   </p>
                 ) : (
                   <div className="mt-3 flex flex-wrap items-start gap-6">

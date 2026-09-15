@@ -24,7 +24,7 @@ export const kBands = [
     id: "pause",
     label: "Pause",
     range: "K⁺ > 6.0",
-    action: "Pause RASi & finerenone · binder (high) × 72 h · recheck 1 wk",
+    action: "Urgent review · <6.5: repeat within 24 h · ≥6.5: immediate hospital assessment",
     color: "pause",
   },
 ];
@@ -68,13 +68,13 @@ export const steps = [
     dose: "Half dose then titrate ↑",
     action: "Foundation — start first, at half dose.",
     checks: [
-      { band: "proceed", bands: ["proceed", "continue", "reduce"], text: "K⁺ ≤ 6.0 — continue RASi → add SGLT2i" },
-      { band: "pause", text: "K⁺ > 6.0 — pause RASi then add SGLT2i" },
+      { band: "proceed", bands: ["proceed", "continue", "reduce"], text: "K⁺ < 6.0 — continue/reduce RASi per K⁺ band → add SGLT2i" },
+      { band: "pause", text: "K⁺ > 6.0 — urgent potassium pathway first; pause RASi; reassess before SGLT2i" },
     ],
-    next: "Check K⁺, then add SGLT2i even if RASi is paused.",
+    next: "Check K⁺; address urgent hyperkalaemia before adding SGLT2i, even if RASi is paused.",
     details: [
-      "K⁺ ≤ 6.0: continue RASi → add SGLT2i.",
-      "K⁺ > 6.0: pause RASi then add SGLT2i. Binder (high) × 72 h — recheck 1 wk.",
+      "K⁺ < 6.0: continue/reduce RASi per K⁺ band → add SGLT2i. At K⁺ 6.0, use the urgent potassium pathway first.",
+      "K⁺ > 6.0: urgent potassium pathway first; <6.5: repeat within 24 h; ≥6.5: immediate hospital assessment. Pause RASi; reassess before SGLT2i.",
     ],
   },
   {

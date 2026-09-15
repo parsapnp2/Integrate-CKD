@@ -3,6 +3,10 @@ import { indications, kBands } from "./data.js";
 import { DIP_30, DIP_30_2, DIP_40, DIP_NONE, evaluatePatient } from "./logic.js";
 import Icon from "./PatientIcons.jsx";
 import { AGENT_COLOR, AGENT_ICON, BAND_COLOR, WARM_THEME } from "./uiTheme.js";
+import { updateFormField } from "./formUnits.js";
+import RangeInput from "./RangeInput.jsx";
+import { interactiveRange } from "./inputRanges.js";
+import PotassiumSafetyNote from "./PotassiumSafetyNote.jsx";
 
 /*
  * Presentation only. Every clinical decision on this page still comes from
@@ -83,6 +87,7 @@ const SEVERITY_LABEL = {
  * and one held at K⁺ 4.8–5.5, so it falls through to the band wording above.
  */
 const STATUS_SEVERITY = {
+  urgent: "Urgent potassium review",
   ready: "Safe",
   notIndicated: "Not indicated",
   blocked: "Caution",
@@ -191,7 +196,7 @@ function Segmented({ value, onChange, options, className = "" }) {
   );
 }
 
-function LabField({ lab, value, onChange, children }) {
+function LabField({ lab, value, onChange, children, range }) {
   return (
     <label
       className="flex flex-col items-start rounded-xl border px-2.5 py-1.5"
@@ -203,7 +208,8 @@ function LabField({ lab, value, onChange, children }) {
         </span>
         {lab.label}
       </span>
-      <input
+      <RangeInput
+        range={range}
         className="mt-0.5 w-full bg-transparent text-left text-sm outline-none"
         style={{ color: "var(--p-ink)" }}
         type="number"
@@ -214,11 +220,7 @@ function LabField({ lab, value, onChange, children }) {
         value={value}
         onChange={onChange}
       />
-      {children ?? (
-        <span className="block text-[10px]" style={{ color: "var(--p-muted)" }}>
-          {lab.hint}
-        </span>
-      )}
+      {children}
     </label>
   );
 }
@@ -315,9 +317,11 @@ function AgentCard({ agent, result, started, isNext }) {
   const statusLabel = STATUS_SEVERITY[status.id] ?? SEVERITY_LABEL[status.band] ?? status.label;
 
   let level = null;
-  if (agent.indicationId === "sglt2i") level = result.agents.sgltGuideline ? "Guideline" : result.agents.sgltPractice ? "Practice" : null;
-  if (agent.indicationId === "nsmra") level = result.agents.nsmraGuideline ? "Guideline" : result.agents.nsmraPractice ? "Practice" : null;
-  if (agent.indicationId === "glp1") level = result.agents.glpGuideline ? "Guideline" : result.agents.glpPractice ? "Practice" : null;
+  if (!result.inputIssues.length) {
+    if (agent.indicationId === "sglt2i") level = result.agents.sgltGuideline ? "Guideline" : result.agents.sgltPractice ? "Practice" : null;
+    if (agent.indicationId === "nsmra") level = result.agents.nsmraGuideline ? "Guideline" : result.agents.nsmraPractice ? "Practice" : null;
+    if (agent.indicationId === "glp1") level = result.agents.glpGuideline ? "Guideline" : result.agents.glpPractice ? "Practice" : null;
+  }
 
   return (
     <div
@@ -378,7 +382,7 @@ function AgentCard({ agent, result, started, isNext }) {
             }}
           >
             <Icon name={level ? "check" : "minus"} size={12} />
-            {level ?? "Not met"}
+            {level ?? (result.inputIssues.length ? "Awaiting inputs" : "Not met")}
           </span>
         ) : null}
       </div>
@@ -407,7 +411,7 @@ export default function InteractiveView() {
   const result = useMemo(() => evaluatePatient(form), [form]);
 
   function set(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => updateFormField(current, key, value));
   }
 
   const nextAgent =
@@ -421,12 +425,19 @@ export default function InteractiveView() {
             ? "glp1"
             : null;
 
-  const bandColor = result.band ? BAND_COLOR[result.band.id] : null;
-  const nextColor = nextAgent ? AGENT_COLOR[nextAgent] : "var(--p-kidney)";
+  const bandColor = result.urgency ? BAND_COLOR.pause : result.band ? BAND_COLOR[result.band.id] : null;
+  const nextColor = result.urgency ? BAND_COLOR.pause : nextAgent ? AGENT_COLOR[nextAgent] : "var(--p-kidney)";
   const startedCount = startedMeds.filter((med) => form[med.key]).length;
 
   return (
     <div className="space-y-2.5" style={{ ...WARM_THEME, color: "var(--p-ink)" }}>
+      {result.urgency ? (
+        <div role="alert" className="rounded-2xl border-2 p-3" style={{ borderColor: BAND_COLOR.pause, background: soft(BAND_COLOR.pause, 8) }}>
+          <h2 className="font-bold" style={{ color: BAND_COLOR.pause }}>{result.urgency.title}</h2>
+          <p className="mt-1 text-sm">{result.urgency.detail}</p>
+          <PotassiumSafetyNote />
+        </div>
+      ) : null}
       {/* ------------------------------------------------------------ inputs */}
       <div className="overflow-hidden rounded-2xl border shadow-sm" style={{ borderColor: "var(--p-line)", background: "var(--p-card)" }}>
         <div
@@ -473,7 +484,7 @@ export default function InteractiveView() {
             <Group icon="potassium" title="Labs" hint="Potassium, filtering, glycemia" accent="var(--p-kidney)">
               <div className="grid grid-cols-3 items-start gap-1.5">
                 {labs.map((lab) => (
-                  <LabField key={lab.key} lab={lab} value={form[lab.key]} onChange={(event) => set(lab.key, event.target.value)} />
+                  <LabField key={lab.key} lab={lab} range={interactiveRange(lab.key, form)} value={form[lab.key]} onChange={(event) => set(lab.key, event.target.value)} />
                 ))}
               </div>
             </Group>
@@ -491,6 +502,7 @@ export default function InteractiveView() {
                     max: undefined,
                     hint: form.uacrUnit === "mgg" ? "mg/g" : "mg/mmol",
                   }}
+                  range={interactiveRange("uacr", form)}
                   value={form.uacr}
                   onChange={(event) => set("uacr", event.target.value)}
                 >
@@ -506,6 +518,7 @@ export default function InteractiveView() {
                 </LabField>
                 <LabField
                   lab={{ label: "SBP", icon: "heart", step: "1", min: "50", max: "250", hint: "mmHg" }}
+                  range={interactiveRange("sbp", form)}
                   value={form.sbp}
                   onChange={(event) => set("sbp", event.target.value)}
                 />
@@ -573,7 +586,7 @@ export default function InteractiveView() {
               <>
                 <div className="flex items-baseline gap-2">
                   <p className="text-lg font-bold leading-tight" style={{ color: bandColor }}>
-                    {SEVERITY_LABEL[result.band.id] ?? result.band.label}
+                    {result.urgency ? "Urgent review" : result.band.id === "proceed" ? "Within K⁺ threshold" : SEVERITY_LABEL[result.band.id] ?? result.band.label}
                   </p>
                   <p className="text-[11px] font-semibold" style={{ color: "var(--p-muted)" }}>
                     {result.band.range}

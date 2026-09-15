@@ -1,4 +1,5 @@
 import { parseNum } from "./logic.js";
+import { calculatorRange, rangeError } from "./inputRanges.js";
 
 /** JAMA 2016 4-variable KFRE (Tangri). uACR in mg/g. Matches kidneyfailurerisk.com. */
 export const kfreS0 = {
@@ -22,7 +23,10 @@ export function kfreLinearPredictor({ age, male, egfr, uacrMgG }) {
 }
 
 export function kfreRisk({ age, male, egfr, uacrMgG, northAmerica = true }) {
-  if (age == null || male == null || egfr == null || uacrMgG == null || uacrMgG <= 0) {
+  if (rangeError(age, calculatorRange("age"), true) ||
+      rangeError(egfr, calculatorRange("egfr"), true) ||
+      rangeError(uacrMgG, calculatorRange("uacr", { uacrUnit: "mgg" }), true) ||
+      ![0, 1].includes(male) || Number(egfr) >= 60) {
     return null;
   }
   const x = kfreLinearPredictor({ age, male, egfr, uacrMgG });

@@ -8,6 +8,10 @@ import { applyHazardRatio, formatRiskPct } from "./riskApply.js";
 import RiskReductionSection from "./RiskReductionSection.jsx";
 import CalculatorReferences from "./CalculatorReferences.jsx";
 import { tone } from "./theme.js";
+import { updateFormField } from "./formUnits.js";
+import RangeInput from "./RangeInput.jsx";
+import { calculatorRange } from "./inputRanges.js";
+import { riskInputIssue } from "./riskInputIssue.js";
 
 /** PREVENT takes cholesterol in mg/dL; Canadian labs report mmol/L. 1 mmol/L = 38.67 mg/dL. */
 const MMOL_TO_MGDL = 38.67;
@@ -22,7 +26,6 @@ const cholToMgDl = (value, unit) => {
   if (n == null) return null;
   return unit === "mmol" ? n * MMOL_TO_MGDL : n;
 };
-const fmtChol = (mgdl, unit) => (unit === "mmol" ? (mgdl / MMOL_TO_MGDL).toFixed(1) : String(mgdl));
 
 const emptyForm = {
   age: "",
@@ -147,7 +150,7 @@ function ModelTags({ tags }) {
   );
 }
 
-function Field({ label, hint, tags, children }) {
+function Field({ label, tags, children }) {
   return (
     <label className="block rounded-xl border border-slate-200 bg-white px-2.5 py-1">
       <span className="flex items-center justify-between gap-1">
@@ -155,7 +158,6 @@ function Field({ label, hint, tags, children }) {
         <ModelTags tags={tags} />
       </span>
       {children}
-      {hint ? <span className="block text-[10px] leading-tight text-muted">{hint}</span> : null}
     </label>
   );
 }
@@ -306,7 +308,7 @@ export default function CalculatorView() {
   const [heartYears, setHeartYears] = useState(10);
 
   function set(key, value) {
-    setForm((current) => ({ ...current, [key]: value }));
+    setForm((current) => updateFormField(current, key, value));
   }
 
   const started = useMemo(
@@ -321,16 +323,10 @@ export default function CalculatorView() {
 
   const age = parseNum(form.age);
   const egfr = parseNum(form.egfr);
-  const sbp = parseNum(form.sbp);
-  const bmi = parseNum(form.bmi);
   const tc = cholToMgDl(form.tc, form.cholUnit);
-  const hdl = cholToMgDl(form.hdl, form.cholUnit);
   const male = form.sex === "male" ? 1 : form.sex === "female" ? 0 : null;
   const uacrMgG = uacrToMgG(form.uacr, form.uacrUnit);
   const cholLabel = form.cholUnit === "mmol" ? "mmol/L" : "mg/dL";
-  const cholRange = (lowMgdl, highMgdl) =>
-    `${fmtChol(lowMgdl, form.cholUnit)}–${fmtChol(highMgdl, form.cholUnit)} ${cholLabel}`;
-  const acrRange = form.uacrUnit === "mgmmol" ? "0.6–170 mg/mmol" : "5–1500 mg/g";
 
   const kidney = useMemo(() => {
     if (age == null || male == null || egfr == null || uacrMgG == null) return null;
@@ -406,66 +402,17 @@ export default function CalculatorView() {
       (value) => String(value ?? "").trim() !== "",
     ) || form.smoking || form.bpmed || form.statin || form.knownCvd;
 
-  function statusFor(baseline, checks) {
+  function statusFor(baseline, outcome, years = 10) {
     if (baseline != null) return null;
     if (!anyInput) return { tone: "muted", message: "Enter patient details to calculate." };
-    const issue = checks.find((check) => !check.ok);
-    return { tone: "warn", message: issue ? issue.message : "Not available for these inputs." };
+    return { tone: "warn", message: riskInputIssue(outcome, form, years) ?? "Not available for these inputs." };
   }
 
-  const kidneyChecks = [
-    { ok: age != null, message: "Enter age." },
-    { ok: male != null, message: "Select sex." },
-    { ok: egfr != null, message: "Enter eGFR." },
-    { ok: String(form.uacr ?? "").trim() !== "", message: "Enter UACR." },
-    { ok: uacrMgG != null && uacrMgG > 0, message: "UACR must be greater than 0." },
-  ];
+  const kidneyStatus = statusFor(kidneyBase, "ckd");
+  const hfStatus = statusFor(hfBase, "hhf", heartYears);
+  const maceStatus = statusFor(ascvdBase, "mace", heartYears);
+  const cvDeathStatus = statusFor(cvDeathBase, "cvdeath");
 
-  const preventChecks = [
-    { ok: !form.knownCvd, message: "Not shown with known CVD. PREVENT is a primary-prevention model." },
-    { ok: age != null, message: "Enter age." },
-    { ok: form.sex !== "", message: "Select sex." },
-    { ok: sbp != null, message: "Enter SBP." },
-    { ok: egfr != null, message: "Enter eGFR." },
-    { ok: age == null || (age >= 30 && age <= 79), message: "PREVENT covers ages 30–79." },
-    { ok: heartYears !== 30 || age == null || age <= 59, message: "30-year PREVENT covers ages 30–59." },
-    { ok: sbp == null || (sbp >= 90 && sbp <= 200), message: "SBP must be 90–200 mm Hg." },
-    { ok: egfr == null || (egfr >= 15 && egfr <= 140), message: "eGFR must be 15–140 mL/min/1.73 m²." },
-  ];
-
-  const hfChecks = [
-    ...preventChecks,
-    { ok: bmi != null, message: "Enter BMI." },
-    { ok: bmi == null || (bmi >= 18.5 && bmi <= 39.9), message: "BMI must be 18.5–39.9 kg/m²." },
-  ];
-
-  const maceChecks = [
-    ...preventChecks,
-    { ok: tc != null, message: "Enter total cholesterol." },
-    { ok: hdl != null, message: "Enter HDL." },
-    { ok: tc == null || (tc >= 130 && tc <= 320), message: `Total cholesterol must be ${cholRange(130, 320)}.` },
-    { ok: hdl == null || (hdl >= 20 && hdl <= 100), message: `HDL must be ${cholRange(20, 100)}.` },
-  ];
-
-  const cvDeathChecks = [
-    { ok: !form.knownCvd, message: "Not shown with known CVD. SCORE is a primary-prevention model." },
-    { ok: age != null, message: "Enter age." },
-    { ok: form.sex !== "", message: "Select sex." },
-    { ok: sbp != null, message: "Enter SBP." },
-    { ok: egfr != null, message: "Enter eGFR." },
-    { ok: uacrMgG != null && uacrMgG > 0, message: "Enter UACR." },
-    { ok: tc != null, message: "Enter total cholesterol." },
-    { ok: age == null || (age >= 40 && age <= 65), message: "This implementation covers ages 40–65." },
-    { ok: sbp == null || (sbp >= 90 && sbp <= 180), message: "SBP must be 90–180 mm Hg." },
-    { ok: egfr == null || (egfr >= 15 && egfr <= 120), message: "eGFR must be 15–120 mL/min/1.73 m²." },
-    { ok: uacrMgG == null || (uacrMgG >= 5 && uacrMgG <= 1500), message: `UACR must be ${acrRange}.` },
-    { ok: tc == null || (tc >= 150 && tc <= 280), message: `Total cholesterol must be ${cholRange(150, 280)}.` },
-  ];
-
-  const kidneyStatus = statusFor(kidneyBase, kidneyChecks);
-  const hfStatus = statusFor(hfBase, hfChecks);
-  const maceStatus = statusFor(ascvdBase, maceChecks);
-  const cvDeathStatus = statusFor(cvDeathBase, cvDeathChecks);
 
   return (
     <div className="space-y-2.5">
@@ -496,7 +443,7 @@ export default function CalculatorView() {
                 aside={
                   <MiniChoice
                     label="KFRE region"
-                    value={form.northAmerica ? "na" : "other"}
+                        value={form.northAmerica ? "na" : "other"}
                     onChange={(id) => set("northAmerica", id === "na")}
                     options={[
                       { id: "na", label: "North America" },
@@ -507,12 +454,11 @@ export default function CalculatorView() {
               >
                 <div className="grid grid-cols-2 gap-1.5">
                   <Field label="Age" hint="years" tags={["K", "P", "S"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="numeric"
-                      min="18"
-                      max="100"
+                      range={calculatorRange("age", form)}
                       value={form.age}
                       onChange={(e) => set("age", e.target.value)}
                     />
@@ -520,7 +466,7 @@ export default function CalculatorView() {
                   <ChoiceField
                     label="Sex"
                     tags={["K", "P", "S"]}
-                    value={form.sex}
+                        value={form.sex}
                     onChange={(id) => set("sex", id)}
                     options={[
                       { id: "female", label: "Female" },
@@ -536,7 +482,7 @@ export default function CalculatorView() {
                   <div className="flex flex-wrap items-center gap-2">
                     <MiniChoice
                       label="ACR"
-                      value={form.uacrUnit}
+                          value={form.uacrUnit}
                       onChange={(id) => set("uacrUnit", id)}
                       options={[
                         { id: "mgmmol", label: "mg/mmol" },
@@ -545,7 +491,7 @@ export default function CalculatorView() {
                     />
                     <MiniChoice
                       label="Chol"
-                      value={form.cholUnit}
+                          value={form.cholUnit}
                       onChange={(id) => set("cholUnit", id)}
                       options={[
                         { id: "mmol", label: "mmol/L" },
@@ -557,72 +503,61 @@ export default function CalculatorView() {
               >
                 <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                   <Field label="eGFR" hint="mL/min/1.73 m²" tags={["K", "P", "S"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="decimal"
-                      min="5"
-                      max="140"
-                      step="1"
+                      range={calculatorRange("egfr", form)}
                       value={form.egfr}
                       onChange={(e) => set("egfr", e.target.value)}
                     />
                   </Field>
                   <Field label="SBP" hint="mm Hg" tags={["P", "S"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="numeric"
-                      min="80"
-                      max="220"
-                      step="1"
+                      range={calculatorRange("sbp", form)}
                       value={form.sbp}
                       onChange={(e) => set("sbp", e.target.value)}
                     />
                   </Field>
                   <Field label="UACR" hint={form.uacrUnit === "mgg" ? "mg/g" : "mg/mmol"} tags={["K", "S"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="decimal"
-                      min="0.1"
-                      step="0.1"
+                      range={calculatorRange("uacr", form)}
                       value={form.uacr}
                       onChange={(e) => set("uacr", e.target.value)}
                     />
                   </Field>
                   <Field label="Total chol." hint={cholLabel} tags={["P", "S"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="decimal"
-                      min={form.cholUnit === "mmol" ? "2" : "80"}
-                      max={form.cholUnit === "mmol" ? "10" : "400"}
-                      step={form.cholUnit === "mmol" ? "0.1" : "1"}
+                      range={calculatorRange("tc", form)}
                       value={form.tc}
                       onChange={(e) => set("tc", e.target.value)}
                     />
                   </Field>
                   <Field label="HDL" hint={cholLabel} tags={["P"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="decimal"
-                      min={form.cholUnit === "mmol" ? "0.3" : "10"}
-                      max={form.cholUnit === "mmol" ? "3" : "120"}
-                      step={form.cholUnit === "mmol" ? "0.01" : "1"}
+                      range={calculatorRange("hdl", form)}
                       value={form.hdl}
                       onChange={(e) => set("hdl", e.target.value)}
                     />
                   </Field>
                   <Field label="BMI" hint="kg/m²" tags={["P"]}>
-                    <input
+                    <RangeInput
                       className={inputClass()}
                       type="number"
                       inputMode="decimal"
-                      min="15"
-                      max="50"
-                      step="0.1"
+                      range={calculatorRange("bmi", form)}
                       value={form.bmi}
                       onChange={(e) => set("bmi", e.target.value)}
                     />
@@ -747,7 +682,6 @@ export default function CalculatorView() {
               anyStarted={anyStarted}
               status={kidneyStatus}
               footnote="Endpoint: dialysis or transplant."
-              caution={egfr != null && egfr >= 60 ? "KFRE is intended for CKD G3–G5 (eGFR < 60)." : null}
             />
             <OutcomeCard
               category="Heart"
