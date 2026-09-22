@@ -58,7 +58,7 @@ const startedMeds = [
 /** Which baseline model consumes each field. Shown as a tag so no field looks model-owned. */
 const MODEL_LABELS = {
   K: "KFRE · kidney failure",
-  P: "PREVENT · heart failure and MACE",
+  P: "PREVENT · heart failure and ASCVD",
   S: "SCORE + CKD Patch · cardiovascular death",
 };
 
@@ -651,7 +651,7 @@ export default function CalculatorView() {
                 />
               </div>
               <div>
-                <p className="text-[9px] font-bold uppercase tracking-wide text-muted">HF / MACE horizon</p>
+                <p className="text-[9px] font-bold uppercase tracking-wide text-muted">HF / ASCVD horizon</p>
                 <Choice
                   value={String(heartYears)}
                   onChange={(id) => setHeartYears(Number(id))}
@@ -697,8 +697,8 @@ export default function CalculatorView() {
               footnote="Endpoint: incident heart failure."
             />
             <OutcomeCard
-              category="MACE"
-              title="MACE"
+              category="ASCVD"
+              title={<>ASCVD<sup className="ml-0.5 text-[9px]">*</sup></>}
               model="PREVENT"
               horizon={`${heartYears}-year`}
               color="#1a365d"
@@ -707,7 +707,7 @@ export default function CalculatorView() {
               treatedCi={ascvdTreatedCi}
               anyStarted={anyStarted}
               status={maceStatus}
-              footnote="Endpoint: PREVENT ASCVD, used as a MACE proxy."
+              footnote="* Endpoint: PREVENT ASCVD."
             />
             <OutcomeCard
               category="CV death"
@@ -727,7 +727,7 @@ export default function CalculatorView() {
 
         {form.knownCvd ? (
           <div className="border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] leading-relaxed text-continue">
-            Known CVD is ticked. PREVENT and SCORE + CKD Patch are primary-prevention models, so the heart failure, MACE
+            Known CVD is ticked. PREVENT and SCORE + CKD Patch are primary-prevention models, so the heart failure, ASCVD
             and cardiovascular death baselines are not shown.
           </div>
         ) : null}

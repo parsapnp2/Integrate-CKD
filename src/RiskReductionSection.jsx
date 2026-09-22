@@ -181,7 +181,9 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-[9px] font-bold uppercase tracking-wide text-muted">{outcome.category}</p>
-          <p className="break-words text-[12px] font-semibold leading-tight text-ink">{outcome.label}</p>
+          <p className="break-words text-[12px] font-semibold leading-tight text-ink">
+            {outcome.label}{outcome.id === "mace" ? <sup className="ml-0.5 text-[9px]">*</sup> : null}
+          </p>
         </div>
         <div className="shrink-0 text-right">
           <p className={`text-base font-bold tabular-nums leading-none ${outcome.valueClass}`}>↓{livePct}%</p>
@@ -215,6 +217,11 @@ function OutcomeTile({ outcome, started, potential, anyStarted }) {
           <p className="text-[9px] text-muted">Add-ons could reach ↓{potentialPct}%.</p>
         ) : null}
       </div>
+      {outcome.id === "mace" ? (
+        <p className="mt-2 border-t border-slate-100 pt-1 text-[9px] leading-snug text-muted">
+          * Trial MACE risk reduction is used as a proxy for ASCVD risk reduction; endpoints differ. See Sources and evidence for limitations.
+        </p>
+      ) : null}
     </div>
   );
 }

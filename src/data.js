@@ -253,9 +253,9 @@ export const riskOutcomes = [
   },
   {
     id: "mace",
-    category: "MACE",
-    label: "MACE",
-    hint: "Nonfatal MI, nonfatal stroke, or CV death",
+    category: "ASCVD",
+    label: "ASCVD",
+    hint: "MACE risk reduction used as a proxy for ASCVD risk reduction",
     icon: "mace",
     fillFrom: "#94a3b8",
     fillTo: "#1a365d",

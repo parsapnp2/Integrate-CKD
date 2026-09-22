@@ -98,16 +98,36 @@ test("not-indicated finerenone is skipped to eligible GLP-1 without changing med
   assert.equal(result.statuses.nsmra.id, "notIndicated");
   assert.equal(result.started.nsmra, false);
   assert.deepEqual(result.skipped, ["nsmra"]);
-  assert.match(result.notes.join(" "), /Finerenone not indicated/);
+  assert.equal(result.now.skipReasons[0].label, "Finerenone not indicated");
 });
 
-test("skipping never bypasses eligible blocked treatments or urgent potassium", () => {
-  assert.equal(evaluatePatient({ ...input, hypoEpisodes: true }).now.title, "Do not start semaglutide yet");
-  assert.equal(evaluatePatient({ ...input, egfr: 45, k: 5 }).now.title, "Defer ns-MRA");
-  assert.equal(evaluatePatient({ ...input, egfr: 45, dip: "dip40" }).now.title, "Hold ns-MRA");
-  assert.equal(evaluatePatient({ ...input, onSglt: false, hba1c: 11 }).now.title, "Hold SGLT2i");
+test("skipping checks later treatments while urgent potassium and missing inputs take priority", () => {
+  assert.equal(evaluatePatient({ ...input, hypoEpisodes: true }).now.title, "No medication available to start at this visit");
+  assert.equal(evaluatePatient({ ...input, egfr: 45, k: 5 }).now.stepId, "glp1");
+  assert.equal(evaluatePatient({ ...input, egfr: 45, dip: "dip40" }).now.stepId, "glp1");
+  assert.equal(evaluatePatient({ ...input, onSglt: false, hba1c: 11 }).now.stepId, "glp1");
   assert.match(evaluatePatient({ ...input, k: 6.5 }).now.title, /Immediate hospital/);
   assert.equal(evaluatePatient({ ...input, hba1c: "" }).now.stepId, null);
+});
+
+test("lab-blocked RASi is skipped with a reason, without implying it was started", () => {
+  for (const k of [5, 5.8]) {
+    const result = evaluatePatient({ ...input, egfr: 45, onRasi: false, onSglt: false, k });
+    assert.equal(result.now.title, "Skip RASi and start SGLT2i");
+    assert.equal(result.now.stepId, "sglt2i");
+    assert.equal(result.started.rasi, false);
+    assert.doesNotMatch(result.now.detail, /continue RASi|reduce RASi/i);
+    assert.equal(result.now.skipReasons[0].label, "RASi blocked");
+    assert.match(result.now.skipReasons[0].reason, /K⁺ > 4.8/);
+  }
+});
+
+test("all four unavailable classes produce reasons without initiation or titration advice", () => {
+  const result = evaluatePatient({ ...input, egfr: 45, onRasi: false, onSglt: false, k: 5, hba1c: 11, hypoEpisodes: true });
+  assert.equal(result.now.stepId, null);
+  assert.equal(result.now.dose, null);
+  assert.equal(result.now.skipReasons.length, 4);
+  assert.ok(Object.values(result.started).every((started) => !started));
 });
 
 test("finishing the eligible sequence only titrates medicines actually started", () => {

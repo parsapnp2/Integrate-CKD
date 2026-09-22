@@ -97,6 +97,7 @@ export const AGENT_IDS = ["rasi", "sglt2i", "nsmra", "glp1"];
  *   reduce    — lower the dose of something already running
  *   pause     — K⁺ wording: "pause RASi & finerenone"
  *   stop      — eGFR wording: "stop / dose reduce"
+ *   discretion — review the clinical context; BP alone is not a hard stop
  *
  * K⁺ rules touch RASi and finerenone only: SGLT2i continues below eGFR 20 until
  * RRT, and no source puts a K⁺, BP or eGFR restriction on GLP-1 RA.
@@ -111,7 +112,11 @@ export function agentDirectives({ k, sbp, hba1c, dip, hypoEpisodes, started = {}
 
   // Initiation / titration gates.
   if (sbpLow) {
-    push(["rasi", "sglt2i", "nsmra"], { id: "sbp", kind: "block", text: "SBP < 90 — no initiation or titration" });
+    push(["rasi", "sglt2i", "nsmra"], {
+      id: "sbp",
+      kind: "discretion",
+      text: "SBP < 90 mmHg — compare with baseline blood pressure and assess symptoms, orthostasis, volume status, and current BP therapy; initiation, titration, or dose adjustment is at physician discretion",
+    });
   }
   if (dip === DIP_30) {
     push(["rasi", "sglt2i", "nsmra"], {
@@ -166,15 +171,6 @@ export function agentDirectives({ k, sbp, hba1c, dip, hypoEpisodes, started = {}
     });
   }
 
-  // BP protocol step 2 only applies once RASi is running.
-  if (sbpLow && started.rasi) {
-    push(["rasi"], {
-      id: "bp-step2",
-      kind: "reduce",
-      text: "SBP < 90 — reduce or stop other BP meds first, then ± consider a decrease in RASi dose",
-    });
-  }
-
   return out;
 }
 
@@ -184,13 +180,19 @@ const STARTED_STATUS = [
   ["reduce", { id: "reduce", label: "Reduce", band: "reduce" }],
   ["block", { id: "noTitrate", label: "No titration", band: "reduce" }],
   ["continue", { id: "continue", label: "Continue", band: "continue" }],
+  ["discretion", { id: "discretion", label: "Physician discretion", band: null }],
 ];
 
-/** Most severe directive wins; not-started agents can only be ready or blocked. */
+/** Most severe directive wins; a BP discretion note does not itself block treatment. */
 export function resolveAgentStatus(directives, isStarted, isIndicated) {
   if (!isStarted) {
     if (!isIndicated) return { id: "notIndicated", label: "Not indicated", band: null };
-    if (directives.length > 0) return { id: "blocked", label: "Blocked", band: "pause" };
+    if (directives.some((d) => d.kind === "block" || d.kind === "stop")) {
+      return { id: "blocked", label: "Blocked", band: "pause" };
+    }
+    if (directives.some((d) => d.kind === "discretion")) {
+      return { id: "discretion", label: "Physician discretion", band: null };
+    }
     return { id: "ready", label: "Ready", band: "proceed" };
   }
   for (const [kind, status] of STARTED_STATUS) {
@@ -201,7 +203,7 @@ export function resolveAgentStatus(directives, isStarted, isIndicated) {
 
 /** What the K+ band means for RASi and finerenone at each assessment. */
 export function kActionsForBand(bandId) {
-  if (bandId === "proceed") return ["K⁺ ≤ 4.8 — initiate and titrate all agents"];
+  if (bandId === "proceed") return ["K⁺ ≤ 4.8 — initiation/titration permitted for indicated agents if other safety checks are met"];
   if (bandId === "continue") return ["K⁺ 4.8–5.5 — continue RASi & finerenone at same or reduced dose"];
   if (bandId === "reduce") {
     return [
@@ -298,7 +300,7 @@ export function evaluatePatient(input) {
   };
 
   const indicated = {
-    rasi: true, // foundation, started first in every arm of the algorithm
+    rasi: true, // foundation; skip initiation only when existing lab rules block it
     sglt2i: sgltGuideline || sgltPractice,
     nsmra: nsmraGuideline || nsmraPractice,
     glp1: glpGuideline || glpPractice,
@@ -352,9 +354,17 @@ export function evaluatePatient(input) {
     };
   }
 
-  // Skip only classes that are not indicated; never skip an eligible blocked class.
-  const nextPending = AGENT_IDS.find((id) => !started[id] && indicated[id]);
-  const skipped = AGENT_IDS.filter((id) => !started[id] && !indicated[id]);
+  // Each class is assessed independently; skipping never marks a medicine started.
+  const nextPending = AGENT_IDS.find((id) => !started[id] && indicated[id] && !blocked(id));
+  const skipped = AGENT_IDS.filter((id) => !started[id] && (!indicated[id] || blocked(id)));
+  const names = { rasi: "RASi", sglt2i: "SGLT2i", nsmra: "Finerenone", glp1: "GLP-1 RA" };
+  const skipReasons = skipped.map((id) => ({
+    id,
+    label: `${names[id]} ${indicated[id] ? "blocked" : "not indicated"}`,
+    reason: indicated[id]
+      ? directives[id].filter((d) => d.kind === "block" || d.kind === "stop").map((d) => d.text).join("; ")
+      : "Indication criteria are not met on these values.",
+  }));
   let now;
 
   if (nextPending === "rasi") {
@@ -378,7 +388,7 @@ export function evaluatePatient(input) {
     }
   } else if (nextPending === "sglt2i") {
     // Urgent potassium values have already returned above.
-    const kNote = k > 5.5 ? "K⁺ > 5.5 — reduce RASi dose, then add SGLT2i." : "K⁺ ≤ 5.5 — continue RASi, then add SGLT2i.";
+    const kNote = !started.rasi ? "SGLT2i meets indication criteria." : k > 5.5 ? "K⁺ > 5.5 — reduce RASi dose, then add SGLT2i." : "K⁺ ≤ 5.5 — continue RASi, then add SGLT2i.";
     if (blocked("sglt2i")) {
       now = {
         title: "Hold SGLT2i",
@@ -436,17 +446,23 @@ export function evaluatePatient(input) {
     } else {
       now = {
         title: "Add GLP-1 RA at quarter dose",
-        detail: `Semaglutide 0.25 mg weekly to limit GI effects — initiated last. ${
-          band ? kActionsForBand(band.id)[0] + "." : ""
-        }`,
+        detail: "Semaglutide 0.25 mg weekly to limit GI effects. Review the medication cards for management of treatments already started.",
         stepId: "glp1",
         recheck: null,
         dose: "semaglutide 0.25 mg weekly",
       };
     }
+  } else if (AGENT_IDS.some((id) => !started[id] && indicated[id] && blocked(id)) || !AGENT_IDS.some((id) => started[id])) {
+    now = {
+      title: "No medication available to start at this visit",
+      detail: "Review the reasons below and reassess eligibility. Review any treatments already started using the medication cards.",
+      stepId: null,
+      recheck: dip === DIP_30 ? "Repeat labs in 2 weeks" : dip === DIP_30_2 || dip === DIP_40 ? "Renal ultrasound" : null,
+      dose: null,
+    };
   } else {
-    // Pre-titration assessment. An eGFR dip or low SBP stops titration outright,
-    // so check that before reading the K+ band.
+    // Pre-titration assessment. eGFR rules can stop titration outright; low BP
+    // remains visible as a physician-discretion note instead of a hard stop.
     const titrationStop = AGENT_IDS.filter((id) => started[id])
       .flatMap((agent) => directives[agent].filter((d) => d.kind === "stop"))
       .filter((d, i, arr) => arr.findIndex((x) => x.id === d.id) === i);
@@ -470,18 +486,18 @@ export function evaluatePatient(input) {
         recheck: dip === DIP_30 ? "Repeat labs in 2 weeks" : null,
         dose: null,
       };
-    } else if (k > 5.5) {
+    } else if (k > 5.5 && (started.rasi || started.nsmra)) {
       now = {
-        title: started.nsmra ? "Reduce RASi, pause finerenone" : "Reduce RASi",
+        title: [started.rasi && "Reduce RASi", started.nsmra && "Pause finerenone"].filter(Boolean).join(", "),
         detail: "K⁺ 5.5–6.0. K⁺ binder (standard dose) + K⁺-wasting diuretic per BP.",
         stepId: "titrate",
         recheck: started.nsmra ? "Re-test finerenone 10 mg once K⁺ ≤ 4.8" : "Recheck K⁺ before titration",
         dose: null,
       };
-    } else if (k > 4.8) {
+    } else if (k > 4.8 && (started.rasi || started.nsmra)) {
       now = {
         title: "Continue at the same or reduced dose",
-        detail: `K⁺ 4.8–5.5 — continue ${started.nsmra ? "RASi & finerenone" : "RASi"} onward if possible; do not uptitrate RASi or ns-MRA.`,
+        detail: `K⁺ 4.8–5.5 — continue ${[started.rasi && "RASi", started.nsmra && "finerenone"].filter(Boolean).join(" & ")} onward if possible; do not uptitrate RASi or ns-MRA.`,
         stepId: "titrate",
         recheck: null,
         dose: null,
@@ -489,7 +505,7 @@ export function evaluatePatient(input) {
     } else {
       now = {
         title: "Titrate to maximum tolerated dose",
-        detail: "K⁺ ≤ 4.8 — re-test RASi at 50% of last tolerated dose.",
+        detail: started.rasi ? "K⁺ ≤ 4.8 — re-test RASi at 50% of last tolerated dose." : "Review tolerability and titrate only treatments already started, as appropriate.",
         stepId: "titrate",
         recheck: null,
         dose: [started.rasi && "RASi ↑", started.nsmra && "finerenone → 20 mg", started.glp1 && "semaglutide 0.25 → 0.5 → 1 mg weekly"].filter(Boolean).join(" · "),
@@ -497,8 +513,16 @@ export function evaluatePatient(input) {
     }
   }
 
-  const names = { rasi: "RASi", sglt2i: "SGLT2i", nsmra: "Finerenone", glp1: "GLP-1 RA" };
-  const notes = skipped.map((id) => `${names[id]} not indicated on these values — skipped in the sequence; not marked as started.`);
+  if (nextPending) {
+    const skippedBefore = skipped.filter((id) => AGENT_IDS.indexOf(id) < AGENT_IDS.indexOf(nextPending));
+    if (skippedBefore.length) {
+      now.title = `Skip ${skippedBefore.map((id) => names[id]).join(", ")} and start ${names[nextPending]}`;
+    }
+    const bpNote = directives[nextPending].find((d) => d.kind === "discretion");
+    if (bpNote) now.detail += ` ${bpNote.text}.`;
+  }
+  now.skipReasons = skipReasons;
+  const notes = [];
   if (input.onInsulin) {
     if (hba1c != null && hba1c > 8) {
       notes.push("On insulin or a secretagogue, HbA1c > 8% — no dose adjustment needed.");

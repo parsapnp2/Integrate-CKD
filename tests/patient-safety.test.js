@@ -48,6 +48,19 @@ test("known stop instructions remain visible while other labs are missing", () =
   assert.equal(result.statuses.sglt2i.id, "awaiting");
 });
 
+test("low systolic blood pressure prompts physician discretion without becoming a hard stop", () => {
+  const result = evaluatePatient({ ...complete, sbp: 85 });
+  assert.equal(result.statuses.rasi.id, "discretion");
+  assert.equal(result.now.title, "Start RASi at half dose");
+  assert.ok(result.allDirectives.some((directive) => directive.id === "sbp" && directive.kind === "discretion"));
+  const bpGuidance = result.allDirectives.find((directive) => directive.id === "sbp").text;
+  assert.match(bpGuidance, /baseline blood pressure/i);
+  assert.match(bpGuidance, /physician discretion/i);
+
+  const withPotassiumStop = evaluatePatient({ ...complete, sbp: 85, k: 5 });
+  assert.equal(withPotassiumStop.statuses.rasi.id, "blocked");
+});
+
 test("unit switching preserves UACR, kidney risk and treatment eligibility through round trips", () => {
   const risk = (form) => kfreRisk({ age: 60, male: 1, egfr: 45, uacrMgG: uacrToMgG(form.uacr, form.uacrUnit) });
   const converted = updateFormField(complete, "uacrUnit", "mgg");

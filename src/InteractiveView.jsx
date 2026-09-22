@@ -66,6 +66,7 @@ const kindStyle = {
   stop: { band: "pause", panel: "act", icon: "block", verb: "Stop or reduce" },
   reduce: { band: "reduce", panel: "act", icon: "minus", verb: "Reduce" },
   continue: { band: "continue", panel: "act", icon: "check", verb: "Continue" },
+  discretion: { band: "continue", panel: "discretion", icon: "stethoscope", verb: "Physician discretion" },
 };
 
 /**
@@ -92,6 +93,7 @@ const STATUS_SEVERITY = {
   notIndicated: "Not indicated",
   blocked: "Caution",
   noTitrate: "Caution",
+  discretion: "Physician discretion",
   reduce: "High",
   stop: "Critical",
   pause: "Critical",
@@ -107,6 +109,7 @@ const statusIcon = {
   stop: "block",
   reduce: "minus",
   noTitrate: "alert",
+  discretion: "stethoscope",
 };
 
 const soft = (color, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, white)`;
@@ -307,10 +310,10 @@ function DirectiveChip({ directive, compact = false }) {
 /** One agent: is it indicated, and what do these values tell you to do with it. */
 function AgentCard({ agent, result, started, isNext }) {
   const color = AGENT_COLOR[agent.id];
-  // A drug that is not running yet can only be blocked from starting; "pause"
-  // and "reduce" advice is about something already in use.
+  // A drug that is not running yet can be blocked or carry a BP discretion
+  // note; "pause" and "reduce" advice is about something already in use.
   const all = result.directives[agent.id] ?? [];
-  const directives = started ? all : all.filter((d) => d.kind === "block" || d.kind === "stop");
+  const directives = started ? all : all.filter((d) => d.kind === "block" || d.kind === "stop" || d.kind === "discretion");
   const status = result.statuses[agent.id];
   const item = agent.indicationId ? indications.find((entry) => entry.id === agent.indicationId) : null;
   const statusColor = status.band ? BAND_COLOR[status.band] : "var(--p-muted)";
@@ -637,6 +640,16 @@ export default function InteractiveView() {
                 </p>
               </div>
             </div>
+            {result.now.skipReasons?.length > 0 ? (
+              <ul className="mt-2 space-y-1.5">
+                {result.now.skipReasons.map((item) => (
+                  <li key={item.id} className="rounded-lg px-2 py-1.5 text-[11px] leading-snug" style={{ background: "var(--p-sand)" }}>
+                    <span className="font-bold">{item.label} — skipped this visit. </span>
+                    <span style={{ color: "var(--p-muted)" }}>{item.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-1.5">
               {result.now.dose ? (
                 <span
@@ -681,16 +694,17 @@ export default function InteractiveView() {
       </div>
 
       {/* --------------------------------------------------------- summaries */}
-      {["block", "act"].map((panel) => {
+      {["block", "act", "discretion"].map((panel) => {
         const items = result.allDirectives.filter((d) => kindStyle[d.kind].panel === panel);
         if (items.length === 0) return null;
         const isBlock = panel === "block";
-        const color = isBlock ? BAND_COLOR.pause : BAND_COLOR.reduce;
+        const isDiscretion = panel === "discretion";
+        const color = isBlock ? BAND_COLOR.pause : isDiscretion ? "var(--p-kidney)" : BAND_COLOR.reduce;
         return (
           <div key={panel} className="rounded-2xl border px-3 py-2.5" style={{ borderColor: color, background: soft(color, 7) }}>
             <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color }}>
-              <Icon name={isBlock ? "block" : "alert"} size={15} />
-              {isBlock ? "Do not initiate or titrate" : "Adjust what is already running"}
+              <Icon name={isBlock ? "block" : isDiscretion ? "stethoscope" : "alert"} size={15} />
+              {isBlock ? "Do not initiate or titrate" : isDiscretion ? "Blood pressure · physician discretion" : "Adjust what is already running"}
             </p>
             <ul className="mt-1.5 space-y-1.5">
               {items.map((directive) => (
