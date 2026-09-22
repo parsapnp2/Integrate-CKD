@@ -1,11 +1,29 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { evaluatePatient } from "../src/logic.js";
+import { evaluatePatient, sequenceAction } from "../src/logic.js";
 import { updateFormField } from "../src/formUnits.js";
 import { kfreRisk, uacrToMgG } from "../src/kfre.js";
 
 const complete = { k: "4.5", egfr: "45", uacr: "30", uacrUnit: "mgmmol", sbp: "120", hba1c: "7", t2d: true };
 const close = (a, b) => assert.ok(Math.abs(a - b) < 1e-11, `${a} != ${b}`);
+
+test("sequence badges show actions and only offer titration after eligible starts and checks", () => {
+  const action = (input, id) => sequenceAction(evaluatePatient({ ...complete, ...input }), id).label;
+  assert.equal(action({}, "rasi"), "Start");
+  assert.equal(action({ k: 5 }, "rasi"), "Blocked");
+  assert.equal(action({ k: 5, onRasi: true }, "rasi"), "No titration");
+  assert.equal(action({ k: 5.8, onRasi: true }, "rasi"), "Reduce dose");
+  assert.equal(action({ k: 5.8, onFinerenone: true }, "nsmra"), "Pause");
+  assert.equal(action({ dip: "dip40", onRasi: true }, "rasi"), "Stop / reduce dose");
+  assert.equal(action({ onRasi: true }, "rasi"), "Done · started");
+  const all = { onRasi: true, onSglt: true, onFinerenone: true, onGlp: true };
+  for (const id of ["rasi", "nsmra", "glp1"]) assert.equal(action(all, id), "Titrate");
+  assert.equal(action(all, "sglt2i"), "Done · started");
+  assert.equal(action({ ...all, sbp: 85 }, "rasi"), "Physician discretion");
+  assert.notEqual(action({ ...all, k: 5.8 }, "glp1"), "Titrate");
+  assert.equal(action({ ...all, k: 6.5 }, "rasi"), "Urgent potassium review");
+  assert.equal(action({ ...all, k: "" }, "rasi"), "Awaiting required information");
+});
 
 test("urgent potassium overrides every medication step, including incomplete labs and other stop rules", () => {
   for (const k of [6, 6.4, 6.49, 6.5, 7, 9]) {
@@ -59,6 +77,25 @@ test("low systolic blood pressure prompts physician discretion without becoming 
 
   const withPotassiumStop = evaluatePatient({ ...complete, sbp: 85, k: 5 });
   assert.equal(withPotassiumStop.statuses.rasi.id, "blocked");
+});
+
+test("potassium instructions distinguish initiation from titration for each medication", () => {
+  for (const onRasi of [false, true]) for (const onFinerenone of [false, true]) {
+    const result = evaluatePatient({ ...complete, k: 5, onRasi, onFinerenone });
+    for (const [id, running] of [["rasi", onRasi], ["nsmra", onFinerenone]]) {
+      const expected = `K⁺ > 4.8 — no ${running ? "titration" : "initiation"}`;
+      assert.equal(result.directives[id].find((d) => d.id === "k48").text, expected);
+      assert.ok(result.allDirectives.some((d) => d.text === expected && d.agents.includes(id)));
+      assert.equal(result.directives[id].some((d) => d.kind === "continue"), running);
+    }
+    if (onRasi !== onFinerenone) assert.equal(result.allDirectives.filter((d) => d.id === "k48").length, 2);
+  }
+  const off = evaluatePatient({ ...complete, k: 5.8 });
+  assert.ok(off.allDirectives.every((d) => !["reduce", "pause", "continue"].includes(d.kind)));
+  assert.doesNotMatch(off.kActions.join(" "), /reduce RASi|pause finerenone/i);
+  const mixed = evaluatePatient({ ...complete, k: 5.8, onRasi: true });
+  assert.match(mixed.kActions.join(" "), /reduce RASi/);
+  assert.doesNotMatch(mixed.kActions.join(" "), /pause finerenone/i);
 });
 
 test("unit switching preserves UACR, kidney risk and treatment eligibility through round trips", () => {

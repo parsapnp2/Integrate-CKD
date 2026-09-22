@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from "react";
 import { indications, kBands } from "./data.js";
-import { DIP_30, DIP_30_2, DIP_40, DIP_NONE, evaluatePatient } from "./logic.js";
+import { DIP_30, DIP_30_2, DIP_40, DIP_NONE, evaluatePatient, sequenceAction } from "./logic.js";
 import Icon from "./PatientIcons.jsx";
 import { AGENT_COLOR, AGENT_ICON, BAND_COLOR, WARM_THEME } from "./uiTheme.js";
 import { updateFormField } from "./formUnits.js";
@@ -81,24 +81,6 @@ const SEVERITY_LABEL = {
   pause: "Critical",
 };
 
-/**
- * The same vocabulary per agent, by status id rather than by status colour, so a
- * gate on starting or titrating reads as a caution while K⁺ over 6.0 reads as
- * critical. "continue" is left out on purpose: it covers both an untroubled agent
- * and one held at K⁺ 4.8–5.5, so it falls through to the band wording above.
- */
-const STATUS_SEVERITY = {
-  urgent: "Urgent potassium review",
-  ready: "Safe",
-  notIndicated: "Not indicated",
-  blocked: "Caution",
-  noTitrate: "Caution",
-  discretion: "Physician discretion",
-  reduce: "High",
-  stop: "Critical",
-  pause: "Critical",
-};
-
 /** Status id → glyph. Colour always travels with this label, never alone. */
 const statusIcon = {
   ready: "check",
@@ -110,6 +92,8 @@ const statusIcon = {
   reduce: "minus",
   noTitrate: "alert",
   discretion: "stethoscope",
+  titrate: "trend",
+  done: "check",
 };
 
 const soft = (color, pct = 12) => `color-mix(in srgb, ${color} ${pct}%, white)`;
@@ -314,10 +298,10 @@ function AgentCard({ agent, result, started, isNext }) {
   // note; "pause" and "reduce" advice is about something already in use.
   const all = result.directives[agent.id] ?? [];
   const directives = started ? all : all.filter((d) => d.kind === "block" || d.kind === "stop" || d.kind === "discretion");
-  const status = result.statuses[agent.id];
+  const status = sequenceAction(result, agent.id);
   const item = agent.indicationId ? indications.find((entry) => entry.id === agent.indicationId) : null;
   const statusColor = status.band ? BAND_COLOR[status.band] : "var(--p-muted)";
-  const statusLabel = STATUS_SEVERITY[status.id] ?? SEVERITY_LABEL[status.band] ?? status.label;
+  const statusLabel = status.label;
 
   let level = null;
   if (!result.inputIssues.length) {
@@ -677,7 +661,10 @@ export default function InteractiveView() {
         <div className="border-t p-2.5" style={{ borderColor: "var(--p-line)" }}>
           <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide" style={{ color: "var(--p-muted)" }}>
             <Icon name="arrow" size={14} />
-            Sequence · indication and what is blocking each agent
+            Sequence · next action for each medication
+          </p>
+          <p className="mt-1 text-[10px]" style={{ color: "var(--p-muted)" }}>
+            Follow “This step” for the next start. Done = already started; continue therapy. Titrate once all indicated medicines are started and checks permit.
           </p>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
             {agentBoard.map((agent) => (
@@ -699,16 +686,20 @@ export default function InteractiveView() {
         if (items.length === 0) return null;
         const isBlock = panel === "block";
         const isDiscretion = panel === "discretion";
+        const affected = [...new Set(items.flatMap((d) => d.agents))];
+        const hasStarted = affected.some((id) => result.started[id]);
+        const hasUnstarted = affected.some((id) => !result.started[id]);
+        const blockHeading = hasStarted && hasUnstarted ? "Initiation and titration restrictions" : hasStarted ? "Do not titrate" : "Do not initiate";
         const color = isBlock ? BAND_COLOR.pause : isDiscretion ? "var(--p-kidney)" : BAND_COLOR.reduce;
         return (
           <div key={panel} className="rounded-2xl border px-3 py-2.5" style={{ borderColor: color, background: soft(color, 7) }}>
             <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide" style={{ color }}>
               <Icon name={isBlock ? "block" : isDiscretion ? "stethoscope" : "alert"} size={15} />
-              {isBlock ? "Do not initiate or titrate" : isDiscretion ? "Blood pressure · physician discretion" : "Adjust what is already running"}
+              {isBlock ? blockHeading : isDiscretion ? "Blood pressure · physician discretion" : "Adjust what is already running"}
             </p>
             <ul className="mt-1.5 space-y-1.5">
               {items.map((directive) => (
-                <li key={directive.id} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-[12px] leading-snug">
+                <li key={`${directive.id}-${directive.text}`} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-[12px] leading-snug">
                   <span className="mt-px shrink-0" style={{ color }}>
                     <Icon name={kindStyle[directive.kind].icon} size={15} />
                   </span>

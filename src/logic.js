@@ -126,7 +126,13 @@ export function agentDirectives({ k, sbp, hba1c, dip, hypoEpisodes, started = {}
     });
   }
   if (k != null && k > 4.8) {
-    push(["rasi", "nsmra"], { id: "k48", kind: "block", text: "K⁺ > 4.8 — no initiation or titration" });
+    for (const isStarted of [false, true]) {
+      push(["rasi", "nsmra"].filter((id) => Boolean(started[id]) === isStarted), {
+        id: "k48",
+        kind: "block",
+        text: `K⁺ > 4.8 — no ${isStarted ? "titration" : "initiation"}`,
+      });
+    }
   }
   if (hba1c != null && hba1c > 10) {
     push(["sglt2i"], { id: "a1c", kind: "block", text: "HbA1c > 10% — no initiation" });
@@ -140,18 +146,21 @@ export function agentDirectives({ k, sbp, hba1c, dip, hypoEpisodes, started = {}
   }
 
   // K⁺ key: what to do with RASi and finerenone that are already running.
+  const pushRunning = (agents, directive) => push(agents.filter((id) => started[id]), directive);
   if (k != null) {
     if (k > 4.8 && k <= 5.5) {
-      push(["rasi", "nsmra"], {
+      pushRunning(["rasi", "nsmra"], {
         id: "k-continue",
         kind: "continue",
         text: "K⁺ 4.8–5.5 — continue at the same or a reduced dose",
       });
     } else if (k > 5.5 && k <= 6.0) {
-      push(["rasi"], { id: "k-reduce", kind: "reduce", text: "K⁺ 5.5–6.0 — reduce RASi dose" });
-      push(["nsmra"], { id: "k-pause-fin", kind: "pause", text: "K⁺ 5.5–6.0 — pause finerenone" });
+      pushRunning(["rasi"], { id: "k-reduce", kind: "reduce", text: "K⁺ 5.5–6.0 — reduce RASi dose" });
+      pushRunning(["nsmra"], { id: "k-pause-fin", kind: "pause", text: "K⁺ 5.5–6.0 — pause finerenone" });
     } else if (k > 6.0) {
-      push(["rasi", "nsmra"], { id: "k-pause", kind: "pause", text: "K⁺ > 6.0 — pause RASi & finerenone" });
+      for (const [id, name] of [["rasi", "RASi"], ["nsmra", "finerenone"]]) {
+        pushRunning([id], { id: "k-pause", kind: "pause", text: `K⁺ > 6.0 — pause ${name}` });
+      }
     }
   }
 
@@ -199,6 +208,23 @@ export function resolveAgentStatus(directives, isStarted, isIndicated) {
     if (directives.some((d) => d.kind === kind)) return status;
   }
   return { id: "continue", label: "Continue", band: "proceed" };
+}
+
+/** Action badges for the sequence, independent of potassium severity labels. */
+export function sequenceAction(result, id) {
+  const status = result.statuses[id];
+  if (status.id === "ready") return { ...status, label: "Start" };
+  if (status.id === "reduce") return { ...status, label: "Reduce dose" };
+  if (status.id === "stop") return { ...status, label: "Stop / reduce dose" };
+  if (status.id !== "continue" || status.band !== "proceed") return status;
+
+  const allIndicatedStarted = AGENT_IDS.every((agent) => !result.indicated[agent] || result.started[agent]);
+  const noActiveRestrictions = AGENT_IDS.every((agent) => !result.started[agent] ||
+    (result.statuses[agent].id === "continue" && result.statuses[agent].band === "proceed"));
+  if (allIndicatedStarted && noActiveRestrictions && id !== "sglt2i") {
+    return { id: "titrate", label: "Titrate", band: "proceed" };
+  }
+  return { id: "done", label: "Done · started", band: "proceed" };
 }
 
 /** What the K+ band means for RASi and finerenone at each assessment. */
@@ -318,7 +344,7 @@ export function evaluatePatient(input) {
   const allDirectives = [];
   for (const id of AGENT_IDS) {
     for (const directive of directives[id]) {
-      if (!allDirectives.some((d) => d.id === directive.id)) allDirectives.push(directive);
+      if (!allDirectives.some((d) => d.id === directive.id && d.text === directive.text)) allDirectives.push(directive);
     }
   }
 
@@ -335,7 +361,12 @@ export function evaluatePatient(input) {
     dose: finerenoneDose(egfr),
     kActions: urgency ? [urgency.detail] : inputIssues.length && band?.id === "proceed"
       ? ["K⁺ is within the initiation threshold. Complete the required information before medication decisions."]
-      : kActionsForBand(band?.id),
+      : band && band.id !== "proceed"
+        ? [
+            ...allDirectives.filter((d) => d.id === "k48" || d.id.startsWith("k-")).map((d) => `${d.agents.map((id) => id === "rasi" ? "RASi" : "Finerenone").join(" / ")}: ${d.text}`),
+            ...kActionsForBand(band.id).slice(1),
+          ]
+        : kActionsForBand(band?.id),
   };
 
   if (urgency) return { ...base, now: urgency, notes: [] };
